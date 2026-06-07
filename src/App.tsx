@@ -568,7 +568,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
             </div>
           ) : (
             <p className="text-[10px] text-amber-600 mt-2 flex items-center gap-1 font-medium">
-              ⚠️ Mode Preview: Masukkan API Key Anda di atas untuk menghubungkan AI. Dapatkan key gratis di Google AI Studio.
+              ⚠️ Mode Preview: Masukkan API Key Anda di atas untuk menghubungkan AI. Dapatkan key gratis di <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-800 font-bold transition-colors">Google AI Studio</a>.
             </p>
           )}
         </div>
