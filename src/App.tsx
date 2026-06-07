@@ -243,18 +243,14 @@ export default function App() {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-    const systemPrompt = `You are an expert creative director specializing in high-conversion ad campaign conceptualization.
-Your goal is to generate exactly 8 highly creative setting locations and exactly 8 marketing-oriented vibes/moods tailored precisely to the user's product and category.
-All outputs must be written in Indonesian. Keep each suggestions short and catchy (typically 2 to 4 words). Do not return markdown, strictly output the specified JSON format.`;
+    const systemPrompt = `Role: Creative Director. Goal: generate 8 ad settings & 8 vibes tailored to product/category. Output Indonesian. Catchy & short (2-4 words). No markdown. JSON output only.`;
 
-    const userPrompt = `Analisis foto produk yang dilampirkan (jika ada), serta informasi berikut untuk merancang usulan ide:
-Kategori Produk: ${formData.category}
-Detail Spesifik Produk: ${formData.productDetail}
-
-Rancang usulan ide yang sangat sesuai dan harmonis dengan visual produk (jika dilampirkan), kategori, dan detailnya.
-Format pengeluaran JSON harus memiliki:
-1. "settings": Array yang berisikan persis 8 ide latar belakang/lokasi syuting yang relevan dan estetik untuk produk ini.
-2. "vibes": Array yang berisikan persis 8 ide suasana/mood/tonalitas iklan yang memikat calon pembeli.`;
+    const userPrompt = `Analyze attached product photo (if any) and info to output ideas.
+Category: ${formData.category}
+Detail: ${formData.productDetail}
+JSON output structure:
+1. "settings": 8 background locations for product ad.
+2. "vibes": 8 marketing vibes/moods.`;
 
     const responseSchema = {
       type: "OBJECT",
@@ -403,48 +399,44 @@ Format pengeluaran JSON harus memiliki:
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-    const systemPrompt = `You are a world-class AI Advertising Director, Cinematic DP, and veteran Copywriter. 
-Your goal is to output an extremely detailed, 5-scene continuous storyboard sequence for a 30-second high-converting affiliate promo video based on user inputs.
-The narrative MUST be incredibly cohesive from Scene 1 to Scene 5:
-- Scene 1: Hook Pembuka (0-3s) - Grabs immediate attention with an intense/engaging hook or emotional pain point.
-- Scene 2: Sorotan Estetika (3-8s) - Focuses heavily on the product's premium physical details, quality materials, and macro texture.
-- Scene 3: Demonstrasi Aksi (8-15s) - Shows active and high-utility real-world usage/demo of the product.
-- Scene 4: Transformasi Kepuasan (15-22s) - Highlights the emotional shift, delight, confidence, and positive payoff of using it.
-- Scene 5: Call to Action (22-30s) - Clear persuasive outro pushing viewers to click the yellow cart or link.
+    const systemPrompt = `Role: Expert Creative Director & Cinematic DP. Goal: Output a cohesive 5-scene JSON storyboard for a 30s affiliate promo video.
+Scenes:
+1. Hook Pembuka (0-3s): Attention-grabbing hook/pain point.
+2. Sorotan Estetika (3-8s): Product premium details/macro texture.
+3. Demonstrasi Aksi (8-15s): Active product usage/demo.
+4. Transformasi Kepuasan (15-22s): Positive emotional payoff.
+5. Call to Action (22-30s): Drive clicks/purchases.
 
-CRITICAL INSTRUCTIONS FOR PROMPT DEPTH (To avoid any AI generator ambiguity):
-1. "imagePrompt": Must be a hyper-detailed, highly descriptive, professional-grade prompt written in English (min 60-80 words). Incorporate specific cinematic camera settings (e.g., "shot on ARRI Alexa LF, 85mm anamorphic lens, shallow depth of field, f/1.4, volumetric warm studio light, high-end commercial color grading, sharp micro-textures of [product details], photorealistic, 8k resolution"). Respect the selected visual style: ${formData.visualStyle}.
-2. "videoPrompt": Must be an incredibly vivid action prompt in English (min 60-80 words). Describe dynamic camera movements (e.g., "slow glide tracking gimbal shot, smooth rack focus from background to [product], extreme close-up panning at 60fps slow motion, realistic wind and particle simulations, seamless physical cloth/material physics, cinematic light leaks").
-3. "voicePrompt": Must be an expressive, high-impact Indonesian Voiceover script. Include detailed vocal tone direction, speed of speech, emotional cue tags (e.g., "[pause 1s]", "[dengan nada berbisik penuh kekaguman]", "[intonasi ceria dan bersemangat]"), and ambient background sound effect directions (e.g., "[SFX: Suara langkah kaki lembut]", "[SFX: Gemerisik kemasan dibuka]").
-
-Return the entire response strictly in the specified JSON format.`;
+Prompt Guidelines:
+- "imagePrompt": Detailed English prompt (~50 words) with camera setup (shot on 85mm, f/1.4, lighting), style: ${formData.visualStyle}.
+- "videoPrompt": Dynamic English prompt (~50 words) describing motion (tracking, rack focus).
+- "voicePrompt": Expressive Indonesian VO with tone tags (e.g. [nada ceria], [SFX: ...]).
+No markdown. JSON only.`;
 
     const faceRefInstruction = `an attractive Indonesian protagonist model`;
 
     const placeholderInstruction = formData.usePlaceholder
-      ? `Use '[PROTAGONIST_MODEL]' to represent the model in both imagePrompt and videoPrompt for easy Face-Swap/ cref workflow. Description of the protagonist model: ${faceRefInstruction}.`
-      : `Describe the model directly as: ${faceRefInstruction}.`;
+      ? `Use '[PROTAGONIST_MODEL]' in prompts. Ref: ${faceRefInstruction}.`
+      : `Describe model as: ${faceRefInstruction}.`;
 
     const productRefInstruction = productImageBase64
-      ? `the product shown in the attached product image (described as: ${formData.productDetail})`
+      ? `product in image (${formData.productDetail})`
       : `${formData.productDetail}`;
 
     const productPlaceholderInstruction = formData.useProductPlaceholder
-      ? `Use '[PRODUCT_PLACEHOLDER]' to represent the product in all prompts (imagePrompt, videoPrompt, voicePrompt) for easy product template swapping. Description of the product: ${productRefInstruction}.`
-      : `Describe/refer to the product directly as: ${productRefInstruction}.`;
+      ? `Use '[PRODUCT_PLACEHOLDER]' in prompts. Ref: ${productRefInstruction}.`
+      : `Describe product as: ${productRefInstruction}.`;
 
-    const userPrompt = `Rancang storyboard 5-scene yang bersinergi untuk produk ini:
-Kategori: ${formData.category}
-Detail Spesifik Produk: ${formData.productDetail}
-Latar Tempat (Setting): ${formData.setting}
-Atmosfer/Vibe: ${formData.vibe}
-Gunakan Hook Emosional di Awal: ${formData.useHook ? "YA (buat intro yang memicu rasa ingin tahu)" : "TIDAK (langsung perkenalkan produk)"}
-Gaya Visual Target: ${formData.visualStyle}
-Gaya Voiceover Target: ${formData.voiceStyle}
-Gaya Penulisan Model: ${placeholderInstruction}
-Gaya Penulisan Produk: ${productPlaceholderInstruction}
-
-Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 elemen berurutan logis.`;
+    const userPrompt = `Generate 5-scene storyboard:
+Category: ${formData.category}
+Product: ${formData.productDetail}
+Setting: ${formData.setting}
+Vibe: ${formData.vibe}
+Hook: ${formData.useHook ? "YES" : "NO"}
+Visual: ${formData.visualStyle}
+Voice: ${formData.voiceStyle}
+Model writing style: ${placeholderInstruction}
+Product writing style: ${productPlaceholderInstruction}`;
 
     const responseSchema = {
       type: "OBJECT",
@@ -1069,7 +1061,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                       disabled={isGenerating}
                       className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm border border-slate-200"
                     >
-                      Batal & Lihat Hasil Sebelumnya
+                      Kembali ke Hasil Sebelumnya
                     </button>
                   )}
                   <button
@@ -1082,7 +1074,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4" />
-                        {generatedResults.length > 0 ? "Hasilkan Prompt Baru" : "Lanjut Buat Prompt"}
+                        {generatedResults.length > 0 ? "Buat Prompt Baru" : "Lanjut Buat Prompt"}
                       </>
                     )}
                   </button>

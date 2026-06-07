@@ -10,8 +10,10 @@ Aplikasi berbasis web ini dirancang untuk membantu pemasar afiliasi (*affiliate 
 
 - **Live Gemini AI Integration**: Terintegrasi langsung dengan API resmi Google Generative Language.
 - **Model Selector**: Memungkinkan pengguna memilih model AI secara fleksibel (`gemini-1.5-flash`, `gemini-2.0-flash`, `gemini-2.5-flash`, dan `gemini-1.5-pro`).
-- **Dynamic Campaign Suggestions**: Menganalisis kategori dan detail produk pada Langkah 1 untuk menghasilkan 8 rekomendasi latar (*setting*) dan 8 suasana (*vibe*) secara dinamis pada Langkah 2.
+- **Multimodal Product Photo Analysis**: Menganalisis foto produk yang diunggah pengguna (Langkah 1) menggunakan kemampuan multimodal Gemini AI guna menghasilkan 8 rekomendasi latar (*setting*) dan 8 suasana (*vibe*) yang sangat sesuai di Langkah 2.
 - **Strategi & Gaya Promosi Kustom**: Pilihan gaya visual AI (*Photorealistic, Cinematic, Studio, dll.*) serta gaya suara voiceover (*Percakapan, Berwibawa, Ceria, dll.*).
+- **Tag Placeholder Kustom (Karakter & Produk)**: Pilihan untuk menggunakan tag `[PROTAGONIST_MODEL]` dan `[PRODUCT_PLACEHOLDER]` guna menyederhanakan penyalinan prompt ke dalam template kerja.
+- **Navigasi Cerdas & Hemat Token**: Jika pengguna telah membuat prompt dan kembali ke halaman strategi, aplikasi menyediakan tombol pintas kembali ke hasil sebelumnya tanpa memicu pemanggilan ulang API Gemini (mengurangi pemakaian token secara drastis).
 - **Protokol Preview Tanpa API Key (Fallback Mock)**: Memungkinkan pengujian alur kerja aplikasi secara penuh tanpa memblokir pengguna jika API Key belum dikonfigurasi.
 - **Clean Storyboard Export**: Hasil keluaran terbagi ke dalam 5 scene terstruktur yang dilengkapi tombol salin cepat untuk Prompt Gambar, Prompt Video, dan Naskah Suara (VO).
 - **UI/UX Premium & Responsif**: Tampilan modern, transisi langkah animasi halus, status progress bar intuitif, serta penataan tata letak otomatis untuk mobile dan tablet.
