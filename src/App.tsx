@@ -1,8 +1,8 @@
-import { useState, ChangeEvent, MouseEvent } from 'react';
-import { 
+import { useState, useEffect, ChangeEvent, MouseEvent } from 'react';
+import {
   Image as ImageIcon, Video, Upload, ChevronRight, ChevronLeft,
-  MessageSquare, CheckCircle, RefreshCcw, Loader2, Sparkles, 
-  LayoutPanelLeft, Copy, Check, Volume2, 
+  MessageSquare, CheckCircle, RefreshCcw, Loader2, Sparkles,
+  LayoutPanelLeft, Copy, Check, Volume2,
   Settings, ToggleLeft, ToggleRight, Mic, ChevronDown, ChevronUp,
   ExternalLink, AlertCircle, Tag, Key
 } from 'lucide-react';
@@ -43,13 +43,52 @@ export default function App() {
   const [showMoreVibes, setShowMoreVibes] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [generatedResults, setGeneratedResults] = useState<Scene[]>([]);
-  
+
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
   const [modelName, setModelName] = useState(() => localStorage.getItem('gemini_model_name') || 'gemini-1.5-flash');
+  const [apiKeyStatus, setApiKeyStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const validateApiKey = async (keyToValidate: string) => {
+    if (!keyToValidate.trim()) {
+      setApiKeyStatus('idle');
+      setValidationError(null);
+      return;
+    }
+
+    setApiKeyStatus('validating');
+    setValidationError(null);
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${keyToValidate}`;
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        setApiKeyStatus('valid');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.error?.message || `Server merespons dengan status ${response.status}`;
+        setApiKeyStatus('invalid');
+        setValidationError(message);
+      }
+    } catch (err) {
+      setApiKeyStatus('invalid');
+      setValidationError('Gagal menghubungi server Google Gemini API. Periksa koneksi internet Anda.');
+    }
+  };
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) {
+      validateApiKey(savedKey);
+    }
+  }, []);
 
   const handleApiKeyChange = (key: string) => {
     setApiKey(key);
     localStorage.setItem('gemini_api_key', key);
+    if (apiKeyStatus !== 'idle') {
+      setApiKeyStatus('idle');
+    }
   };
 
   const handleModelChange = (model: string) => {
@@ -105,7 +144,7 @@ export default function App() {
 
   const handleNext = () => setStep(step + 1);
   const handleBack = () => setStep(step - 1);
-  
+
   const handleReset = () => {
     setStep(1);
     setActiveTab(0);
@@ -344,11 +383,11 @@ CRITICAL INSTRUCTIONS FOR PROMPT DEPTH (To avoid any AI generator ambiguity):
 
 Return the entire response strictly in the specified JSON format.`;
 
-    const faceRefInstruction = formData.faceImage 
-      ? `Indonesian model matching the provided reference face image, with consistent facial bone structure, hairstyle, and skin tone` 
+    const faceRefInstruction = formData.faceImage
+      ? `Indonesian model matching the provided reference face image, with consistent facial bone structure, hairstyle, and skin tone`
       : `an attractive Indonesian protagonist model`;
 
-    const placeholderInstruction = formData.usePlaceholder 
+    const placeholderInstruction = formData.usePlaceholder
       ? `Use '[PROTAGONIST_MODEL]' to represent the model in both imagePrompt and videoPrompt for easy Face-Swap/ cref workflow. Description of the protagonist model: ${faceRefInstruction}.`
       : `Describe the model directly as: ${faceRefInstruction}.`;
 
@@ -442,17 +481,17 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans p-4 md:p-8 pb-20">
       <div className="max-w-5xl mx-auto">
-        
+
         {/* Header */}
         <header className="mb-8 text-center animate-in fade-in duration-300">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold mb-4">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" /> Live Gemini AI Processor
+            <Sparkles className="w-3.5 h-3.5 animate-pulse" /> by Qwerwoty
           </div>
           <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 flex items-center justify-center gap-2 mb-2 tracking-tight">
             Affiliate Prompt Generator
           </h1>
           <p className="text-slate-500 max-w-md mx-auto text-sm md:text-base">
-            Sistem Pintar Pembuat Prompt Kreatif Berurutan Khusus Foto, Video & Suara Menggunakan Pemrosesan Riil Gemini AI.
+            Pembuat Prompt Kreatif Foto, Video & Suara.
           </p>
         </header>
 
@@ -461,16 +500,25 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="flex items-center gap-2 text-slate-700 shrink-0">
               <Key className="w-4 h-4 text-indigo-500" />
-              <span className="text-xs font-bold">Konfigurasi Gemini API:</span>
+              <span className="text-xs font-bold">Gemini API:</span>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <input 
-                type="password" 
-                placeholder="Masukkan API Key Gemini Anda..." 
-                className="w-full sm:w-2/3 px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs bg-slate-50/50"
-                value={apiKey}
-                onChange={(e) => handleApiKeyChange(e.target.value)}
-              />
+              <div className="relative w-full sm:w-2/3">
+                <input
+                  type="password"
+                  placeholder="Masukkan API Key Gemini Anda..."
+                  className="w-full pl-3 pr-16 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs bg-slate-50/50"
+                  value={apiKey}
+                  onChange={(e) => handleApiKeyChange(e.target.value)}
+                />
+                <button
+                  onClick={() => validateApiKey(apiKey)}
+                  disabled={apiKeyStatus === 'validating'}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 disabled:opacity-50 text-[10px] font-bold rounded border border-indigo-200 transition-colors"
+                >
+                  {apiKeyStatus === 'validating' ? 'Checking...' : 'Verifikasi'}
+                </button>
+              </div>
               <select
                 className="w-full sm:w-1/3 px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs bg-slate-50/50 font-bold text-slate-700"
                 value={modelName}
@@ -483,9 +531,44 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
               </select>
             </div>
           </div>
-          {!apiKey && (
+          {apiKey ? (
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-col gap-1 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 font-medium">Status API Key:</span>
+                {apiKeyStatus === 'idle' && (
+                  <span className="text-slate-500 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    Belum diverifikasi. Silakan klik Verifikasi.
+                  </span>
+                )}
+                {apiKeyStatus === 'validating' && (
+                  <span className="text-indigo-600 font-semibold flex items-center gap-1 animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Memverifikasi...
+                  </span>
+                )}
+                {apiKeyStatus === 'valid' && (
+                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                    Valid & Siap Digunakan
+                  </span>
+                )}
+                {apiKeyStatus === 'invalid' && (
+                  <span className="text-rose-600 font-semibold flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                    Tidak Valid / Error Koneksi
+                  </span>
+                )}
+              </div>
+              {apiKeyStatus === 'invalid' && validationError && (
+                <p className="text-[10px] text-rose-500 mt-1 p-2 rounded bg-rose-50 border border-rose-100 font-mono leading-normal">
+                  Detail: {validationError}
+                </p>
+              )}
+            </div>
+          ) : (
             <p className="text-[10px] text-amber-600 mt-2 flex items-center gap-1 font-medium">
-              ⚠️ Mode Preview (Mock): Masukkan API Key Anda di atas untuk menghubungkan AI secara riil. Dapatkan key gratis di Google AI Studio.
+              ⚠️ Mode Preview: Masukkan API Key Anda di atas untuk menghubungkan AI. Dapatkan key gratis di Google AI Studio.
             </p>
           )}
         </div>
@@ -493,37 +576,35 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
         {/* Progress Bar */}
         <div className="flex justify-between items-center mb-8 relative px-4 md:px-12 max-w-xl mx-auto">
           <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-slate-200 -z-10 rounded"></div>
-          <div 
-            className="absolute left-6 top-1/2 -translate-y-1/2 h-1 bg-indigo-600 -z-10 rounded transition-all duration-500" 
+          <div
+            className="absolute left-6 top-1/2 -translate-y-1/2 h-1 bg-indigo-600 -z-10 rounded transition-all duration-500"
             style={{ width: `${((step - 1) / 3) * 100}%` }}
           ></div>
-          
+
           {[1, 2, 3, 4].map((num) => {
             const isCompleted = step > num;
             const isActive = step === num;
             return (
-              <div 
-                key={num} 
-                className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex flex-col items-center justify-center font-bold border-4 transition-all duration-300 relative ${
-                  isActive 
-                    ? 'bg-indigo-600 text-white border-indigo-200 shadow-lg shadow-indigo-200 scale-110 ring-2 ring-indigo-500/50 ring-offset-2' 
-                    : isCompleted
-                      ? 'bg-emerald-600 text-white border-emerald-100'
-                      : 'bg-slate-100 text-slate-400 border-white'
-                }`}
+              <div
+                key={num}
+                className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex flex-col items-center justify-center font-bold border-4 transition-all duration-300 relative ${isActive
+                  ? 'bg-indigo-600 text-white border-indigo-200 shadow-lg shadow-indigo-200 scale-110 ring-2 ring-indigo-500/50 ring-offset-2'
+                  : isCompleted
+                    ? 'bg-emerald-600 text-white border-emerald-100'
+                    : 'bg-slate-100 text-slate-400 border-white'
+                  }`}
               >
                 {isCompleted ? (
                   <CheckCircle className="w-4 h-4 text-white" />
                 ) : (
                   <span className="text-sm">{num}</span>
                 )}
-                <span className={`absolute -bottom-6 text-[9px] font-extrabold tracking-wider whitespace-nowrap hidden sm:block uppercase transition-colors duration-300 ${
-                  isActive 
-                    ? 'text-indigo-600' 
-                    : isCompleted
-                      ? 'text-emerald-600'
-                      : 'text-slate-400'
-                }`}>
+                <span className={`absolute -bottom-6 text-[9px] font-extrabold tracking-wider whitespace-nowrap hidden sm:block uppercase transition-colors duration-300 ${isActive
+                  ? 'text-indigo-600'
+                  : isCompleted
+                    ? 'text-emerald-600'
+                    : 'text-slate-400'
+                  }`}>
                   {num === 1 && "Produk"}
                   {num === 2 && "Klarifikasi"}
                   {num === 3 && "Strategi"}
@@ -540,7 +621,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
             <div>
               <h4 className="font-bold text-sm">Terjadi Masalah Koneksi</h4>
               <p className="text-xs text-red-700 mt-1">{apiError}</p>
-              <button 
+              <button
                 onClick={generatePromptsWithGemini}
                 className="mt-3 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1"
               >
@@ -551,7 +632,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
         )}
 
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 transition-all duration-300 mt-8">
-          
+
           {/* STEP 1: INPUT DATA */}
           {step === 1 && (
             <div className="p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -559,23 +640,23 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                 <Upload className="w-5 h-5 text-indigo-600" />
                 Langkah 1: Input Dasar Produk
               </h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Upload Area */}
                 <label className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-all cursor-pointer bg-slate-50 relative overflow-hidden group min-h-[220px]">
-                  <input 
-                    type="file" 
-                    accept="image/png, image/jpeg, image/webp" 
-                    className="hidden" 
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    className="hidden"
                     onChange={handleImageUpload}
                   />
-                  
+
                   {formData.faceImage ? (
                     <>
-                      <img 
-                        src={formData.faceImage} 
-                        alt="Preview Wajah" 
-                        className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-20 transition-opacity" 
+                      <img
+                        src={formData.faceImage}
+                        alt="Preview Wajah"
+                        className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-20 transition-opacity"
                       />
                       <div className="relative z-10 flex flex-col items-center">
                         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-sm animate-bounce">
@@ -583,7 +664,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         </div>
                         <h3 className="font-semibold mb-1 text-slate-900">Gambar Wajah Terpilih</h3>
                         <p className="text-xs text-slate-600 mb-4 bg-white/90 px-2 py-1 rounded">Model referensi wajah aktif</p>
-                        <button 
+                        <button
                           onClick={handleRemoveImage}
                           className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50 transition-colors shadow-sm"
                         >
@@ -597,7 +678,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         <ImageIcon className="w-7 h-7 text-indigo-600" />
                       </div>
                       <h3 className="font-bold text-slate-800 mb-1">Unggah Wajah Model</h3>
-                      <p className="text-xs text-slate-500 mb-4 max-w-[200px]">Opsional: Unggah foto wajah model utama Anda untuk dianalisis oleh instruksi prompt AI</p>
+                      <p className="text-xs text-slate-500 mb-4 max-w-[200px]">Opsional: Unggah foto wajah model utama Anda untuk dianalisis</p>
                       <div className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50 shadow-sm pointer-events-none">Pilih File</div>
                     </>
                   )}
@@ -607,31 +688,31 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Kategori Produk <span className="text-red-500">*</span></label>
-                    <select 
+                    <select
                       className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white text-sm"
                       value={formData.category}
-                      onChange={(e) => setFormData({...formData, category: e.target.value, setting: '', vibe: ''})}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value, setting: '', vibe: '' })}
                     >
                       <option value="">-- Pilih Kategori --</option>
                       {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Detail Produk Spesifik <span className="text-red-500">*</span></label>
-                    <input 
-                      type="text" 
-                      placeholder="Cth: Lipstik matte warna merah ceri, Sneakers putih rajut" 
+                    <input
+                      type="text"
+                      placeholder="Cth: Lipstik matte warna merah ceri, Sneakers putih rajut"
                       className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm"
                       value={formData.productDetail}
-                      onChange={(e) => setFormData({...formData, productDetail: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, productDetail: e.target.value })}
                     />
                   </div>
                 </div>
               </div>
 
               <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
-                <button 
+                <button
                   onClick={handleTransitionToStep2}
                   disabled={!formData.category || !formData.productDetail || isFetchingSuggestions}
                   className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-indigo-100"
@@ -639,11 +720,11 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                   {isFetchingSuggestions ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Menganalisis Konsep...
+                      Menganalisis...
                     </>
                   ) : (
                     <>
-                      Lanjut ke Penyesuaian <ChevronRight className="w-5 h-5" />
+                      Lanjut<ChevronRight className="w-5 h-5" />
                     </>
                   )}
                 </button>
@@ -656,9 +737,9 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
             <div className="p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300 bg-slate-50">
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
                 <MessageSquare className="w-5 h-5 text-indigo-600" />
-                Langkah 2: Klarifikasi AI (Rekomendasi dari Gemini)
+                Langkah 2: Klarifikasi
               </h2>
-              
+
               <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm mb-6 animate-in fade-in duration-300">
                 <div className="flex gap-4 mb-6 pb-6 border-b border-slate-100">
                   <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
@@ -668,43 +749,41 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                     Gemini AI telah menganalisis produk <span className="font-bold text-indigo-600">{formData.productDetail}</span> untuk memformulasikan saran Latar & Suasana dengan konversi penjualan tertinggi!
                   </p>
                 </div>
-                
+
                 <div className="space-y-8">
                   {/* Dynamic Setting Suggestions from Gemini */}
                   <div>
                     <label className="block text-sm font-bold text-slate-800 mb-3">1. Latar Belakang (Setting) Lokasi:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Pilih di bawah atau tulis kustom sendiri..." 
+                    <input
+                      type="text"
+                      placeholder="Pilih di bawah atau tulis kustom sendiri..."
                       className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm"
                       value={formData.setting}
-                      onChange={(e) => setFormData({...formData, setting: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, setting: e.target.value })}
                     />
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-2">
                         {aiSuggestions.settings.slice(0, 4).map(sug => (
-                          <button 
+                          <button
                             key={sug}
-                            onClick={() => setFormData({...formData, setting: sug})}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${
-                              formData.setting === sug 
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                            }`}
+                            onClick={() => setFormData({ ...formData, setting: sug })}
+                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${formData.setting === sug
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                              }`}
                           >
                             + {sug}
                           </button>
                         ))}
 
                         {showMoreSettings && aiSuggestions.settings.slice(4, 8).map(sug => (
-                          <button 
+                          <button
                             key={sug}
-                            onClick={() => setFormData({...formData, setting: sug})}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${
-                              formData.setting === sug 
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                            }`}
+                            onClick={() => setFormData({ ...formData, setting: sug })}
+                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.setting === sug
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                              }`}
                           >
                             + {sug}
                           </button>
@@ -716,49 +795,47 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
                       >
                         {showMoreSettings ? (
-                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan rekomendasi lainnya</>
+                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
                         ) : (
-                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya (Dihasilkan AI)</>
+                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
                         )}
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Dynamic Vibe Suggestions from Gemini */}
                   <div>
                     <label className="block text-sm font-bold text-slate-800 mb-3">2. Suasana (Vibe & Mood) yang Diinginkan:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Pilih di bawah atau tulis kustom sendiri..." 
+                    <input
+                      type="text"
+                      placeholder="Pilih di bawah atau tulis kustom sendiri..."
                       className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm"
                       value={formData.vibe}
-                      onChange={(e) => setFormData({...formData, vibe: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, vibe: e.target.value })}
                     />
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-2">
                         {aiSuggestions.vibes.slice(0, 4).map(sug => (
-                          <button 
+                          <button
                             key={sug}
-                            onClick={() => setFormData({...formData, vibe: sug})}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${
-                              formData.vibe === sug 
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                            }`}
+                            onClick={() => setFormData({ ...formData, vibe: sug })}
+                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${formData.vibe === sug
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                              }`}
                           >
                             + {sug}
                           </button>
                         ))}
 
                         {showMoreVibes && aiSuggestions.vibes.slice(4, 8).map(sug => (
-                          <button 
+                          <button
                             key={sug}
-                            onClick={() => setFormData({...formData, vibe: sug})}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${
-                              formData.vibe === sug 
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                            }`}
+                            onClick={() => setFormData({ ...formData, vibe: sug })}
+                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.vibe === sug
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                              }`}
                           >
                             + {sug}
                           </button>
@@ -770,9 +847,9 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
                       >
                         {showMoreVibes ? (
-                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan rekomendasi lainnya</>
+                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
                         ) : (
-                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya (Dihasilkan AI)</>
+                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
                         )}
                       </button>
                     </div>
@@ -781,13 +858,13 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
               </div>
 
               <div className="flex justify-between items-center mt-8">
-                <button 
+                <button
                   onClick={handleBack}
                   className="px-5 py-3 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors text-sm"
                 >
                   Kembali
                 </button>
-                <button 
+                <button
                   onClick={handleNext}
                   disabled={!formData.setting || !formData.vibe}
                   className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:shadow-none text-sm"
@@ -805,17 +882,17 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                 <Settings className="w-5 h-5 text-indigo-600" />
                 Langkah 3: Strategi & Gaya Promosi
               </h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
                 <div className="space-y-6">
                   <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl">
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <h4 className="font-bold text-slate-800 text-sm">Gunakan Hook Menarik</h4>
-                        <p className="text-xs text-slate-500 max-w-[280px]">AI suara akan membuat awal video memicu rasa ingin tahu audiens secara dramatis.</p>
+                        <p className="text-xs text-slate-500 max-w-[280px]">Mmbuat awal video memicu rasa ingin tahu audiens secara dramatis.</p>
                       </div>
-                      <button 
-                        onClick={() => setFormData({...formData, useHook: !formData.useHook})}
+                      <button
+                        onClick={() => setFormData({ ...formData, useHook: !formData.useHook })}
                         className="text-indigo-600 hover:scale-105 transition-transform focus:outline-none"
                       >
                         {formData.useHook ? (
@@ -834,10 +911,10 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <h4 className="font-bold text-slate-800 text-sm">Gunakan Placeholder Karakter</h4>
-                        <p className="text-xs text-slate-500 max-w-[280px]">Menyisipkan tag khusus [PROTAGONIST_MODEL] untuk memudahkan workflow editing Face-Swap AI.</p>
+                        <p className="text-xs text-slate-500 max-w-[280px]">Menyisipkan tag khusus [PROTAGONIST_MODEL] untuk memudahkan workflow dengan Charactersheet.</p>
                       </div>
-                      <button 
-                        onClick={() => setFormData({...formData, usePlaceholder: !formData.usePlaceholder})}
+                      <button
+                        onClick={() => setFormData({ ...formData, usePlaceholder: !formData.usePlaceholder })}
                         className="text-indigo-600 hover:scale-105 transition-transform focus:outline-none"
                       >
                         {formData.usePlaceholder ? (
@@ -855,17 +932,16 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-3">Gaya Visual (Tampilan AI):</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-3">Gaya Visual (Tampilan):</label>
                     <div className="grid grid-cols-2 gap-3">
                       {visualStyles.map((style) => (
                         <button
                           key={style.name}
-                          onClick={() => setFormData({...formData, visualStyle: style.name})}
-                          className={`p-3 text-left rounded-xl border text-xs transition-all focus:outline-none ${
-                            formData.visualStyle === style.name
-                              ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
-                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                          }`}
+                          onClick={() => setFormData({ ...formData, visualStyle: style.name })}
+                          className={`p-3 text-left rounded-xl border text-xs transition-all focus:outline-none ${formData.visualStyle === style.name
+                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                            }`}
                         >
                           <div className="font-bold mb-1">{style.name}</div>
                           <div className="text-[10px] text-slate-500 leading-tight">{style.desc}</div>
@@ -882,12 +958,11 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                   {voiceStyles.map((voice) => (
                     <button
                       key={voice.name}
-                      onClick={() => setFormData({...formData, voiceStyle: voice.name})}
-                      className={`p-3 text-left rounded-xl border text-xs transition-all focus:outline-none ${
-                        formData.voiceStyle === voice.name
-                          ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                      }`}
+                      onClick={() => setFormData({ ...formData, voiceStyle: voice.name })}
+                      className={`p-3 text-left rounded-xl border text-xs transition-all focus:outline-none ${formData.voiceStyle === voice.name
+                        ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                        }`}
                     >
                       <div className="font-bold mb-1 flex items-center gap-1 text-slate-800">
                         <Mic className="w-3.5 h-3.5 text-indigo-500" />
@@ -900,22 +975,22 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
               </div>
 
               <div className="flex justify-between items-center mt-8">
-                <button 
+                <button
                   onClick={handleBack}
                   disabled={isGenerating}
                   className="px-5 py-3 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors text-sm"
                 >
                   Kembali
                 </button>
-                <button 
+                <button
                   onClick={generatePromptsWithGemini}
                   disabled={isGenerating}
                   className="bg-indigo-600 text-white px-6 md:px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 text-sm"
                 >
                   {isGenerating ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis Campaign dengan Gemini...</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis</>
                   ) : (
-                    <><Sparkles className="w-4 h-4 animate-bounce" /> Kirim ke Gemini AI</>
+                    <><Sparkles className="w-4 h-4 animate-bounce" /> Lanjut Buat Promt</>
                   )}
                 </button>
               </div>
@@ -925,21 +1000,21 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
           {/* STEP 4: RESULTS */}
           {step === 4 && generatedResults.length > 0 && (
             <div className="flex flex-col md:flex-row min-h-[620px] animate-in fade-in slide-in-from-bottom-4 duration-300">
-              
+
               {/* Sidebar Storyboard */}
               <div className="w-full md:w-1/3 border-r border-slate-200 bg-slate-50 p-4 md:p-6 flex flex-col justify-between">
                 <div>
                   <h3 className="font-bold flex items-center gap-2 mb-2 text-slate-800 text-sm md:text-base">
                     <LayoutPanelLeft className="w-5 h-5 text-indigo-600" />
-                    Storyboard Aktif
+                    Storyboard
                   </h3>
                   <p className="text-[11px] text-slate-500 mb-4 pb-4 border-b border-slate-200 leading-relaxed">
-                    Setiap segmen di bawah dihasilkan secara real-time oleh Gemini AI. Berurutan harmonis dari Scene 1 s/d 5.
+                    Di bawah ini adalah Prompt Scene 1 s/d 5 yang dihasilkan secara berurutan oleh Gemini AI.
                   </p>
-                  
+
                   <div className="space-y-3 max-h-[360px] md:max-h-none overflow-y-auto pr-1">
                     {generatedResults.map((result, idx) => (
-                      <button 
+                      <button
                         key={idx}
                         onClick={() => {
                           setActiveTab(idx);
@@ -949,16 +1024,14 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                             document.getElementById('details-pane')?.scrollIntoView({ behavior: 'smooth' });
                           }
                         }}
-                        className={`w-full text-left p-3 rounded-xl border transition-all duration-200 focus:outline-none ${
-                          activeTab === idx 
-                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-md transform scale-[1.01]' 
+                        className={`w-full text-left p-3 rounded-xl border transition-all duration-200 focus:outline-none ${activeTab === idx
+                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-md transform scale-[1.01]'
                           : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300'
-                        }`}
+                          }`}
                       >
                         <div className="flex justify-between items-center mb-1">
-                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                            activeTab === idx ? 'bg-indigo-700 text-indigo-100' : 'bg-slate-100 text-slate-500'
-                          }`}>
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider ${activeTab === idx ? 'bg-indigo-700 text-indigo-100' : 'bg-slate-100 text-slate-500'
+                            }`}>
                             Scene {idx + 1}
                           </span>
                           {activeTab === idx && <CheckCircle className="w-3.5 h-3.5" />}
@@ -971,18 +1044,18 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="mt-6 pt-6 border-t border-slate-200 space-y-2">
-                   <button 
-                     onClick={() => setStep(3)} 
-                     className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors shadow-sm"
-                   >
+                  <button
+                    onClick={() => setStep(3)}
+                    className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors shadow-sm"
+                  >
                     <ChevronLeft className="w-3.5 h-3.5" /> Sesuaikan Strategi
                   </button>
-                   <button 
-                     onClick={handleReset} 
-                     className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors shadow-sm"
-                   >
+                  <button
+                    onClick={handleReset}
+                    className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors shadow-sm"
+                  >
                     <RefreshCcw className="w-3.5 h-3.5" /> Mulai Produk Baru
                   </button>
                 </div>
@@ -994,7 +1067,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                   {/* REVISI POIN 3: BADGES KONFIGURASI PILIHAN USER */}
                   <div className="mb-6 bg-slate-50 border border-slate-100 rounded-xl p-4 animate-in fade-in duration-300">
                     <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest block mb-2.5 flex items-center gap-1.5">
-                      <Tag className="w-3 h-3 text-indigo-500" /> Ringkasan Konfigurasi Kampanye
+                      <Tag className="w-3 h-3 text-indigo-500" /> Ringkasan Konfigurasi
                     </span>
                     <div className="flex flex-wrap gap-2">
                       <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
@@ -1044,22 +1117,22 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-3">
                         <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
                           <ImageIcon className="w-4 h-4" />
-                          <span>Prompt Gambar (Lebih Detail & Deskriptif)</span>
+                          <span>Prompt Gambar</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                           <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
-                          <a 
-                            href="https://www.midjourney.com" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                          <a
+                            href="https://www.midjourney.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-bold transition-all border border-indigo-200 flex items-center gap-0.5"
                           >
                             Midjourney <ExternalLink className="w-2.5 h-2.5" />
                           </a>
-                          <a 
-                            href="https://chat.openai.com" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                          <a
+                            href="https://chat.openai.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-bold transition-all border border-indigo-200 flex items-center gap-0.5"
                           >
                             DALL-E 3 <ExternalLink className="w-2.5 h-2.5" />
@@ -1067,23 +1140,22 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         </div>
                       </div>
                       <div className="relative">
-                        <textarea 
-                          readOnly 
+                        <textarea
+                          readOnly
                           className="w-full h-32 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-indigo-400 transition-colors leading-relaxed font-mono"
                           value={activeScene?.imagePrompt || ''}
                         />
-                        <button 
+                        <button
                           onClick={() => handleCopyText(activeScene?.imagePrompt || '', 'image')}
-                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${
-                            copiedStates.image 
-                              ? 'bg-green-600 text-white hover:bg-green-700' 
-                              : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600'
-                          }`}
+                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.image
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600'
+                            }`}
                         >
                           {copiedStates.image ? (
                             <><Check className="w-3 h-3" /> Tersalin</>
                           ) : (
-                            <><Copy className="w-3 h-3" /> Salin Prompt</>
+                            <><Copy className="w-3 h-3" /> Salin</>
                           )}
                         </button>
                       </div>
@@ -1094,30 +1166,30 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-3">
                         <div className="flex items-center gap-2 text-blue-700 font-bold text-sm">
                           <Video className="w-4 h-4" />
-                          <span>Prompt Video Singkat (Lebih Detail & Deskriptif)</span>
+                          <span>Prompt Video</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                           <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
-                          <a 
-                            href="https://openai.com/sora" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                          <a
+                            href="https://openai.com/sora"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
                           >
                             Sora <ExternalLink className="w-2.5 h-2.5" />
                           </a>
-                          <a 
-                            href="https://runwayml.com" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                          <a
+                            href="https://runwayml.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
                           >
                             Runway <ExternalLink className="w-2.5 h-2.5" />
                           </a>
-                          <a 
-                            href="https://klingai.com" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                          <a
+                            href="https://klingai.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
                           >
                             Kling AI <ExternalLink className="w-2.5 h-2.5" />
@@ -1125,23 +1197,22 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         </div>
                       </div>
                       <div className="relative">
-                        <textarea 
-                          readOnly 
+                        <textarea
+                          readOnly
                           className="w-full h-32 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-blue-400 transition-colors leading-relaxed font-mono"
                           value={activeScene?.videoPrompt || ''}
                         />
-                        <button 
+                        <button
                           onClick={() => handleCopyText(activeScene?.videoPrompt || '', 'video')}
-                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${
-                            copiedStates.video 
-                              ? 'bg-green-600 text-white hover:bg-green-700' 
-                              : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
-                          }`}
+                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.video
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
+                            }`}
                         >
                           {copiedStates.video ? (
                             <><Check className="w-3 h-3" /> Tersalin</>
                           ) : (
-                            <><Copy className="w-3 h-3" /> Salin Prompt</>
+                            <><Copy className="w-3 h-3" /> Salin</>
                           )}
                         </button>
                       </div>
@@ -1156,18 +1227,18 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                           <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
-                          <a 
-                            href="https://elevenlabs.io" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                          <a
+                            href="https://elevenlabs.io"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-bold transition-all border border-emerald-200 flex items-center gap-0.5"
                           >
                             ElevenLabs <ExternalLink className="w-2.5 h-2.5" />
                           </a>
-                          <a 
-                            href="https://lovo.ai" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                          <a
+                            href="https://lovo.ai"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-bold transition-all border border-emerald-200 flex items-center gap-0.5"
                           >
                             Lovo AI <ExternalLink className="w-2.5 h-2.5" />
@@ -1175,23 +1246,22 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         </div>
                       </div>
                       <div className="relative">
-                        <textarea 
-                          readOnly 
+                        <textarea
+                          readOnly
                           className="w-full h-32 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-emerald-400 transition-colors leading-relaxed"
                           value={activeScene?.voicePrompt || ''}
                         />
-                        <button 
+                        <button
                           onClick={() => handleCopyText(activeScene?.voicePrompt || '', 'voice')}
-                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${
-                            copiedStates.voice 
-                              ? 'bg-green-600 text-white hover:bg-green-700' 
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
-                          }`}
+                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.voice
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
+                            }`}
                         >
                           {copiedStates.voice ? (
                             <><Check className="w-3 h-3" /> Tersalin</>
                           ) : (
-                            <><Copy className="w-3 h-3" /> Salin Prompt</>
+                            <><Copy className="w-3 h-3" /> Salin</>
                           )}
                         </button>
                       </div>
@@ -1209,7 +1279,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
 
             </div>
           )}
-          
+
         </div>
       </div>
     </div>
