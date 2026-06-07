@@ -1,104 +1,148 @@
 # Affiliate Prompt Generator 🚀
 
-**Sistem Pintar Pembuat Prompt Kreatif Berurutan Khusus Foto, Video & Suara Menggunakan Pemrosesan Riil Gemini AI.**
+> **A powerful, production-grade AI-powered marketing storyboard creator that generates high-fidelity prompts for images, videos, and voiceovers using Google's official Gemini AI API.**
 
-Aplikasi berbasis web ini dirancang untuk membantu pemasar afiliasi (*affiliate marketers*) membuat storyboard promosi video 30 detik secara instan dan kohesif. Dengan memanfaatkan kekuatan model AI terbaru dari Google Gemini, generator ini menyusun narasi logis dari pembuka (*hook*), detail produk, demonstrasi produk, hingga ajakan bertindak (*call-to-action*).
+[![React](https://img.shields.io/badge/React-18-blue.svg?style=flat-square&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.0-purple.svg?style=flat-square&logo=vite)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v3-38bdf8.svg?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
----
-
-## 🌟 Fitur Utama
-
-- **Live Gemini AI Integration**: Terintegrasi langsung dengan API resmi Google Generative Language.
-- **Model Selector**: Memungkinkan pengguna memilih model AI secara fleksibel (`gemini-1.5-flash`, `gemini-2.0-flash`, `gemini-2.5-flash`, dan `gemini-1.5-pro`).
-- **Multimodal Product Photo Analysis**: Menganalisis foto produk yang diunggah pengguna (Langkah 1) menggunakan kemampuan multimodal Gemini AI guna menghasilkan 8 rekomendasi latar (*setting*) dan 8 suasana (*vibe*) yang sangat sesuai di Langkah 2.
-- **Strategi & Gaya Promosi Kustom**: Pilihan gaya visual AI (*Photorealistic, Cinematic, Studio, dll.*) serta gaya suara voiceover (*Percakapan, Berwibawa, Ceria, dll.*).
-- **Tag Placeholder Kustom (Karakter & Produk)**: Pilihan untuk menggunakan tag `[PROTAGONIST_MODEL]` dan `[PRODUCT_PLACEHOLDER]` guna menyederhanakan penyalinan prompt ke dalam template kerja.
-- **Navigasi Cerdas & Hemat Token**: Jika pengguna telah membuat prompt dan kembali ke halaman strategi, aplikasi menyediakan tombol pintas kembali ke hasil sebelumnya tanpa memicu pemanggilan ulang API Gemini (mengurangi pemakaian token secara drastis).
-- **Protokol Preview Tanpa API Key (Fallback Mock)**: Memungkinkan pengujian alur kerja aplikasi secara penuh tanpa memblokir pengguna jika API Key belum dikonfigurasi.
-- **Clean Storyboard Export**: Hasil keluaran terbagi ke dalam 5 scene terstruktur yang dilengkapi tombol salin cepat untuk Prompt Gambar, Prompt Video, dan Naskah Suara (VO).
-- **UI/UX Premium & Responsif**: Tampilan modern, transisi langkah animasi halus, status progress bar intuitif, serta penataan tata letak otomatis untuk mobile dan tablet.
+Designed specifically for affiliate marketers, content creators, and social commerce sellers, **Affiliate Prompt Generator** transforms a simple product description and an optional photo into a cohesive, structured 5-scene campaign. In seconds, you get production-ready creative prompts for Midjourney, DALL-E, Sora, Runway, Kling, and voiceover scripts ready for ElevenLabs or TikTok voice synthesis.
 
 ---
 
-## 🛠️ Tech Stack
+## 📸 Interface Preview
 
-Aplikasi ini dibangun menggunakan teknologi modern tingkat produksi:
-
-1. **Frontend**: React 18, TypeScript (Type-safe strict mode), Tailwind CSS v3.
-2. **Icons**: Lucide React.
-3. **Build Tool & Dev Server**: Vite.
-4. **Integration**: Google Generative AI REST API.
+![Affiliate Prompt Generator Screenshot](screenshot.png)
 
 ---
 
-## 📂 Struktur Folder Proyek
+## 🎯 Table of Contents
 
-Restrukturisasi proyek mengikuti standar produksi React:
+1. [Key Features](#-key-features)
+2. [Technology Stack](#%EF%B8%8F-technology-stack)
+3. [Project Structure](#-project-structure)
+4. [Getting Started](#-getting-started)
+   - [Prerequisites](#prerequisites)
+   - [Installation](#1-installation)
+   - [Running Locally](#2-running-locally)
+   - [Building for Production](#3-building-for-production)
+5. [API Integration & Configuration](#-api-integration--configuration)
+6. [Best Practices for Midjourney/Sora Workflow](#-best-practices-for-midjourneysora-workflow)
+7. [License](#-license)
+
+---
+
+## 🌟 Key Features
+
+*   **⚡ Live Gemini AI Integration**: Connects directly to Google's official Generative Language endpoints, giving you direct access to the latest generative models.
+*   **🤖 Flexible Model Selection**: Choose dynamically between `gemini-1.5-flash`, `gemini-2.0-flash`, `gemini-2.5-flash`, and `gemini-1.5-pro` directly from the interface.
+*   **📸 Multimodal Product Photo Analysis**: Upload your product photo in Step 1. Gemini AI analyzes the image's colors, textures, and shape to suggest the most matching background settings and promotional vibes in Step 2.
+*   **🏷️ Custom Placeholders**:
+    *   `[PROTAGONIST_MODEL]`: Switch this on to output standardized model tags (ideal for Midjourney `--cref` character swap workflows).
+    *   `[PRODUCT_PLACEHOLDER]`: Standardizes product references (ideal for templating prompts).
+*   **💡 Smart Navigation & Token Caching**: If you edit your settings, the application caches previous results and allows you to return to your generated prompts without consuming extra API tokens.
+*   **🎬 5-Scene Sequential Output**: Structurally outputs the entire narrative sequence:
+    1.  *Scene 1: Hook Pembuka* (Attention-grabbing intro)
+    2.  *Scene 2: Sorotan Estetika* (Premium macro product detail zoom)
+    3.  *Scene 3: Demonstrasi Aksi* (Real-world usage/demo)
+    4.  *Scene 4: Transformasi Kepuasan* (Emotional positive payoff)
+    5.  *Scene 5: Call to Action* (Driving viewers to click and buy)
+*   **📋 One-Click Copy Buttons**: Instantly copy generated Image prompts, Video prompts, or Voiceover script segments.
+
+---
+
+## 🛠️ Technology Stack
+
+*   **Core**: React 18 (Hooks, TypeScript Strict Mode)
+*   **Styling**: Tailwind CSS v3 & PostCSS
+*   **Icons**: Lucide React
+*   **Build Tooling**: Vite
+*   **Integration**: Official Google Generative Language REST API (`fetch` with dynamic retry and error fallback logic)
+
+---
+
+## 📂 Project Structure
 
 ```text
 Affiliate-Prompt-Generator/
-├── .git/                  # Repositori Git lokal
-├── node_modules/          # Dependensi Node.js
-├── src/                   # Source Code Utama
-│   ├── App.tsx            # Komponen utama & state logic aplikasi
-│   ├── main.tsx           # Entry point mounting React
-│   └── index.css          # Setup stylesheet & Tailwind directives
-├── index.html             # Template HTML dasar (mengarah ke /src/main.tsx)
-├── tsconfig.json          # Konfigurasi compiler TypeScript
-├── vite.config.ts         # Konfigurasi server & build Vite
-├── tailwind.config.js     # Konfigurasi utilitas Tailwind CSS
-├── postcss.config.js      # Integrasi plugin PostCSS
-├── package.json           # File konfigurasi package & dependensi proyek
-├── .gitignore             # Pengabaian file build & node_modules
-└── README.md              # Dokumentasi lengkap proyek
+├── .git/                  # Local Git repository
+├── node_modules/          # Node.js dependencies
+├── src/                   # Main source code
+│   ├── App.tsx            # Main state logic and components
+│   ├── main.tsx           # React mounting entrypoint
+│   └── index.css          # Tailwind setup and custom styling
+├── index.html             # Base HTML template
+├── screenshot.png         # Main interface preview
+├── tsconfig.json          # TypeScript compilation options
+├── vite.config.ts         # Vite bundler options
+├── tailwind.config.js     # Tailwind CSS utility setup
+└── README.md              # Project documentation
 ```
 
 ---
 
-## 🚀 Panduan Instalasi & Penggunaan Lokal
+## 🚀 Getting Started
 
-### Prasyarat
-Pastikan Anda sudah menginstal [Node.js](https://nodejs.org/) (versi 18+) di komputer Anda.
+### Prerequisites
 
-### 1. Kloning Repositori & Masuk Direktori
+*   [Node.js](https://nodejs.org/) (Version 18 or above recommended)
+*   A package manager (npm, yarn, or pnpm)
+
+### 1. Installation
+
+Clone the repository and enter the directory:
+
 ```bash
 git clone https://github.com/boncabee/Affiliate-Prompt-Generator.git
 cd Affiliate-Prompt-Generator
 ```
 
-### 2. Instal Dependensi
+Install the dependencies:
+
 ```bash
 npm install
 ```
 
-### 3. Jalankan Server Pengembangan
+### 2. Running Locally
+
+Start the Vite development server:
+
 ```bash
 npm run dev
 ```
-Aplikasi akan secara otomatis terbuka di peramban pada alamat `http://localhost:3000/`.
 
-### 4. Build untuk Produksi
+Open your browser and navigate to `http://localhost:3000` (or the port specified in your terminal).
+
+### 3. Building for Production
+
+Compile the production bundle:
+
 ```bash
 npm run build
 ```
-Hasil kompilasi siap pakai untuk hosting statis akan berada di dalam direktori `dist/`.
+
+The compiled assets will be built into the `dist/` directory, ready to be hosted on Netlify, Vercel, GitHub Pages, or any static hosting provider.
 
 ---
 
-## ⚙️ Konfigurasi API
+## ⚙️ API Integration & Configuration
 
-1. Dapatkan API Key Gemini gratis melalui [Google AI Studio](https://aistudio.google.com/).
-2. Masukkan API Key Anda pada kartu konfigurasi di bagian atas aplikasi. API Key disimpan dengan aman di penyimpanan lokal peramban Anda (`localStorage`).
-3. Jika tidak menggunakan API Key, aplikasi secara otomatis berjalan dalam **Mode Preview (Mock)** menggunakan generator mock data cerdas untuk menayangkan demo storyboard.
-
----
-
-## 🤝 Kontribusi
-
-Kontribusi selalu diterima! Silakan buka *issue* baru atau ajukan *pull request* untuk meningkatkan kinerja, memperbaiki bug, atau menambahkan fitur baru pada aplikasi ini.
+1.  Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/).
+2.  Paste your API key into the configuration card at the top of the interface.
+3.  The API key is securely saved locally in your browser's `localStorage` and never sent to any external server other than Google's direct API endpoint.
+4.  *Fallback Mode*: If you don't have an API key, the application automatically runs in **Preview Mode (Mock)** with a simulated loading state and a pre-formatted creative storyboard so you can explore the user interface.
 
 ---
 
-## 📝 Lisensi
+## 💡 Best Practices for Midjourney/Sora Workflow
 
-Proyek ini dilisensikan di bawah [MIT License](LICENSE).
+1.  **Consistent Character**: Turn on *Gunakan Placeholder Karakter*. When you paste the `imagePrompt` to Midjourney, append `--cref [URL_TO_MODEL_FACE]` and replace `[PROTAGONIST_MODEL]` with your consistent model reference.
+2.  **Product Placement**: Turn on *Gunakan Placeholder Produk*. If your product is highly unique, generate the template using `[PRODUCT_PLACEHOLDER]` and use Photoshop/Canva or a product-swap AI to insert your actual product.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
