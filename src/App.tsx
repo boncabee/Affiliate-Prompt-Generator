@@ -22,13 +22,14 @@ interface AiSuggestions {
 }
 
 interface FormData {
-  faceImage: string | null;
+  productImage: string | null;
   category: string;
   productDetail: string;
   setting: string;
   vibe: string;
   useHook: boolean;
   usePlaceholder: boolean;
+  useProductPlaceholder: boolean;
   visualStyle: string;
   voiceStyle: string;
 }
@@ -102,14 +103,18 @@ export default function App() {
     vibes: []
   });
 
+  const [productImageBase64, setProductImageBase64] = useState<string | null>(null);
+  const [productImageMimeType, setProductImageMimeType] = useState<string | null>(null);
+
   const [formData, setFormData] = useState<FormData>({
-    faceImage: null,
+    productImage: null,
     category: '',
     productDetail: '',
     setting: '',
     vibe: '',
     useHook: true,
     usePlaceholder: false,
+    useProductPlaceholder: false,
     visualStyle: 'Photorealistic',
     voiceStyle: 'Percakapan/Alami'
   });
@@ -154,14 +159,17 @@ export default function App() {
     setApiError(null);
     setGeneratedResults([]);
     setAiSuggestions({ settings: [], vibes: [] });
+    setProductImageBase64(null);
+    setProductImageMimeType(null);
     setFormData({
-      faceImage: null,
+      productImage: null,
       category: '',
       productDetail: '',
       setting: '',
       vibe: '',
       useHook: true,
       usePlaceholder: false,
+      useProductPlaceholder: false,
       visualStyle: 'Photorealistic',
       voiceStyle: 'Percakapan/Alami'
     });
@@ -171,13 +179,27 @@ export default function App() {
     const file = e.target.files?.[0];
     if (file) {
       const imageUrl = URL.createObjectURL(file);
-      setFormData(prev => ({ ...prev, faceImage: imageUrl }));
+      setFormData(prev => ({ ...prev, productImage: imageUrl }));
+
+      // Convert image to base64 for Gemini multimodal input
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const commaIndex = base64String.indexOf(',');
+        if (commaIndex !== -1) {
+          setProductImageBase64(base64String.substring(commaIndex + 1));
+          setProductImageMimeType(file.type);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const handleRemoveImage = (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    setFormData(prev => ({ ...prev, faceImage: null }));
+    setFormData(prev => ({ ...prev, productImage: null }));
+    setProductImageBase64(null);
+    setProductImageMimeType(null);
   };
 
   const handleCopyText = (text: string, type: 'image' | 'video' | 'voice') => {
@@ -225,12 +247,13 @@ export default function App() {
 Your goal is to generate exactly 8 highly creative setting locations and exactly 8 marketing-oriented vibes/moods tailored precisely to the user's product and category.
 All outputs must be written in Indonesian. Keep each suggestions short and catchy (typically 2 to 4 words). Do not return markdown, strictly output the specified JSON format.`;
 
-    const userPrompt = `Rancang usulan ide untuk produk berikut:
+    const userPrompt = `Analisis foto produk yang dilampirkan (jika ada), serta informasi berikut untuk merancang usulan ide:
 Kategori Produk: ${formData.category}
 Detail Spesifik Produk: ${formData.productDetail}
 
+Rancang usulan ide yang sangat sesuai dan harmonis dengan visual produk (jika dilampirkan), kategori, dan detailnya.
 Format pengeluaran JSON harus memiliki:
-1. "settings": Array yang berisikan persis 8 ide latar belakang/lokasi syuting yang relevan dan estetik.
+1. "settings": Array yang berisikan persis 8 ide latar belakang/lokasi syuting yang relevan dan estetik untuk produk ini.
 2. "vibes": Array yang berisikan persis 8 ide suasana/mood/tonalitas iklan yang memikat calon pembeli.`;
 
     const responseSchema = {
@@ -250,8 +273,18 @@ Format pengeluaran JSON harus memiliki:
       required: ["settings", "vibes"]
     };
 
+    const parts: any[] = [{ text: userPrompt }];
+    if (productImageBase64 && productImageMimeType) {
+      parts.push({
+        inlineData: {
+          mimeType: productImageMimeType,
+          data: productImageBase64
+        }
+      });
+    }
+
     const payload = {
-      contents: [{ parts: [{ text: userPrompt }] }],
+      contents: [{ parts }],
       systemInstruction: { parts: [{ text: systemPrompt }] },
       generationConfig: {
         responseMimeType: "application/json",
@@ -312,47 +345,50 @@ Format pengeluaran JSON harus memiliki:
     setIsGenerating(true);
     setApiError(null);
 
+    const productText = formData.useProductPlaceholder ? '[PRODUCT_PLACEHOLDER]' : (formData.productDetail || 'produk ini');
+    const modelText = formData.usePlaceholder ? '[PROTAGONIST_MODEL]' : 'model Indonesia';
+
     if (!apiKey.trim()) {
       // Fallback mock storyboard if no API key is provided
       const mockScenes: Scene[] = [
         {
           seq: "Scene 1: Hook Pembuka",
           name: "Masalah & Daya Tarik",
-          description: `Model melihat ke kamera dengan ekspresi bingung atau frustrasi sebelum menemukan solusi lewat ${formData.productDetail || 'produk ini'}.`,
+          description: `${modelText} melihat ke kamera dengan ekspresi bingung atau frustrasi sebelum menemukan solusi lewat ${productText}.`,
           imagePrompt: `Extreme close-up shot of a young attractive Indonesian model looking frustrated, soft natural lighting, shallow depth of field, 85mm lens, f/1.8, commercial color grading, high detail.`,
-          videoPrompt: `A slow tilt-up showing the model sitting in a cozy modern cafe, rubbing their temples, then smiling as they look down at ${formData.productDetail || 'produk ini'} on the wooden table. 4k resolution, cinematic motion, 60fps.`,
+          videoPrompt: `A slow tilt-up showing the ${modelText} sitting in a cozy modern cafe, rubbing their temples, then smiling as they look down at ${productText} on the wooden table. 4k resolution, cinematic motion, 60fps.`,
           voicePrompt: `[intonasi ceria dan santai] "Bosen nggak sih sama pilihan yang biasa-biasa aja? Kenalin nih solusi baru yang wajib kamu coba!"`
         },
         {
           seq: "Scene 2: Sorotan Estetika",
           name: "Detail Premium Produk",
-          description: `Kamera melakukan zoom detail produk untuk menyoroti tekstur, kemasan premium, dan warna estetis dari ${formData.productDetail || 'produk ini'}.`,
-          imagePrompt: `Macro product photography of ${formData.productDetail || 'produk ini'} placed on a clean marble surface, studio softbox lighting, volumetric reflections, sharp textures, photorealistic, 8k.`,
-          videoPrompt: `Slow panning shot across the sleek curves and fine materials of ${formData.productDetail || 'produk ini'}, highlighting the brand logo and pristine texture. Studio lighting, elegant dust particles floating in the light shaft.`,
+          description: `Kamera melakukan zoom detail produk untuk menyoroti tekstur, kemasan premium, dan warna estetis dari ${productText}.`,
+          imagePrompt: `Macro product photography of ${productText} placed on a clean marble surface, studio softbox lighting, volumetric reflections, sharp textures, photorealistic, 8k.`,
+          videoPrompt: `Slow panning shot across the sleek curves and fine materials of ${productText}, highlighting the brand logo and pristine texture. Studio lighting, elegant dust particles floating in the light shaft.`,
           voicePrompt: `[nada berbisik penuh kekaguman] "Lihat deh detailnya... Desainnya elegan banget dan dibikin dari bahan premium pilihan."`
         },
         {
           seq: "Scene 3: Demonstrasi Aksi",
           name: "Penggunaan Secara Riil",
-          description: `Model menunjukkan kegunaan dan cara mengoperasikan/mengaplikasikan ${formData.productDetail || 'produk ini'} dengan senyuman puas.`,
-          imagePrompt: `Close-up shot of an Indonesian model's hands holding and using ${formData.productDetail || 'produk ini'}, warm morning light, cinematic atmosphere, f/2.0, detailed skin texture.`,
-          videoPrompt: `Over-the-shoulder tracking shot showing the model demonstrating how to use ${formData.productDetail || 'produk ini'} step-by-step. Smooth hand movements, natural lighting, clean background.`,
+          description: `${modelText} menunjukkan kegunaan dan cara mengoperasikan/mengaplikasikan ${productText} dengan senyuman puas.`,
+          imagePrompt: `Close-up shot of an Indonesian model's hands holding and using ${productText}, warm morning light, cinematic atmosphere, f/2.0, detailed skin texture.`,
+          videoPrompt: `Over-the-shoulder tracking shot showing the ${modelText} demonstrating how to use ${productText} step-by-step. Smooth hand movements, natural lighting, clean background.`,
           voicePrompt: `[intonasi bersemangat] "Nggak cuma keren, cara pakainya juga gampang banget lho. Praktis dan langsung kelihatan hasilnya!"`
         },
         {
           seq: "Scene 4: Transformasi Kepuasan",
           name: "Hasil Akhir & Percaya Diri",
-          description: `Model menunjukkan rasa bahagia dan kepuasan penuh setelah menggunakan ${formData.productDetail || 'produk ini'}, memancarkan aura positif.`,
-          imagePrompt: `Portrait of a smiling Indonesian model looking confident and happy, holding ${formData.productDetail || 'produk ini'}, sun flare background, outdoor tropical city street, volumetric lighting.`,
-          videoPrompt: `Medium shot of the model laughing and showing off the final look/result with ${formData.productDetail || 'produk ini'}. Dynamic camera dolly movement, vibrant colors, cinematic color grading.`,
+          description: `${modelText} menunjukkan rasa bahagia dan kepuasan penuh setelah menggunakan ${productText}, memancarkan aura positif.`,
+          imagePrompt: `Portrait of a smiling Indonesian model looking confident and happy, holding ${productText}, sun flare background, outdoor tropical city street, volumetric lighting.`,
+          videoPrompt: `Medium shot of the ${modelText} laughing and showing off the final look/result with ${productText}. Dynamic camera dolly movement, vibrant colors, cinematic color grading.`,
           voicePrompt: `[nada gembira] "Hasilnya bener-bener memuaskan! Bikin aku makin percaya diri seharian."`
         },
         {
           seq: "Scene 5: Call to Action",
           name: "Ajakan Klik Keranjang",
           description: `Layar menunjukkan visual akhir produk beserta teks ajakan bertindak (CTA) untuk membeli via keranjang kuning.`,
-          imagePrompt: `Minimalist dynamic layout showing ${formData.productDetail || 'produk ini'} with a clean soft pastel background, text overlay reading 'Beli Sekarang', f/2.8, professional ad campaign style.`,
-          videoPrompt: `A final slow zoom-out of ${formData.productDetail || 'produk ini'} beside the model who points smilingly towards the screen. Volumetric warm studio light.`,
+          imagePrompt: `Minimalist dynamic layout showing ${productText} with a clean soft pastel background, text overlay reading 'Beli Sekarang', f/2.8, professional ad campaign style.`,
+          videoPrompt: `A final slow zoom-out of ${productText} beside the ${modelText} who points smilingly towards the screen. Volumetric warm studio light.`,
           voicePrompt: `[intonasi mengajak dan ceria] "Yuk, langsung klik keranjang kuning di bawah sekarang juga sebelum kehabisan ya!"`
         }
       ];
@@ -383,13 +419,19 @@ CRITICAL INSTRUCTIONS FOR PROMPT DEPTH (To avoid any AI generator ambiguity):
 
 Return the entire response strictly in the specified JSON format.`;
 
-    const faceRefInstruction = formData.faceImage
-      ? `Indonesian model matching the provided reference face image, with consistent facial bone structure, hairstyle, and skin tone`
-      : `an attractive Indonesian protagonist model`;
+    const faceRefInstruction = `an attractive Indonesian protagonist model`;
 
     const placeholderInstruction = formData.usePlaceholder
       ? `Use '[PROTAGONIST_MODEL]' to represent the model in both imagePrompt and videoPrompt for easy Face-Swap/ cref workflow. Description of the protagonist model: ${faceRefInstruction}.`
       : `Describe the model directly as: ${faceRefInstruction}.`;
+
+    const productRefInstruction = productImageBase64
+      ? `the product shown in the attached product image (described as: ${formData.productDetail})`
+      : `${formData.productDetail}`;
+
+    const productPlaceholderInstruction = formData.useProductPlaceholder
+      ? `Use '[PRODUCT_PLACEHOLDER]' to represent the product in all prompts (imagePrompt, videoPrompt, voicePrompt) for easy product template swapping. Description of the product: ${productRefInstruction}.`
+      : `Describe/refer to the product directly as: ${productRefInstruction}.`;
 
     const userPrompt = `Rancang storyboard 5-scene yang bersinergi untuk produk ini:
 Kategori: ${formData.category}
@@ -400,6 +442,7 @@ Gunakan Hook Emosional di Awal: ${formData.useHook ? "YA (buat intro yang memicu
 Gaya Visual Target: ${formData.visualStyle}
 Gaya Voiceover Target: ${formData.voiceStyle}
 Gaya Penulisan Model: ${placeholderInstruction}
+Gaya Penulisan Produk: ${productPlaceholderInstruction}
 
 Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 elemen berurutan logis.`;
 
@@ -426,8 +469,18 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
       required: ["scenes"]
     };
 
+    const parts: any[] = [{ text: userPrompt }];
+    if (productImageBase64 && productImageMimeType) {
+      parts.push({
+        inlineData: {
+          mimeType: productImageMimeType,
+          data: productImageBase64
+        }
+      });
+    }
+
     const payload = {
-      contents: [{ parts: [{ text: userPrompt }] }],
+      contents: [{ parts }],
       systemInstruction: { parts: [{ text: systemPrompt }] },
       generationConfig: {
         responseMimeType: "application/json",
@@ -503,8 +556,8 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                 <Key className="w-4 h-4 text-indigo-600" />
               </div>
               <div>
-                <span className="text-xs font-bold block text-slate-800">Gemini AI API Key</span>
-                <span className="text-[10px] text-slate-500 block">Kunci untuk menghubungkan model AI</span>
+                <span className="text-xs font-bold block text-slate-800">Gemini API Key</span>
+                <span className="text-[10px] text-slate-500 block">Hubungkan dengan model AI</span>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 grow md:justify-end">
@@ -656,19 +709,19 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                     onChange={handleImageUpload}
                   />
 
-                  {formData.faceImage ? (
+                  {formData.productImage ? (
                     <>
                       <img
-                        src={formData.faceImage}
-                        alt="Preview Wajah"
+                        src={formData.productImage}
+                        alt="Preview Produk"
                         className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-20 transition-opacity"
                       />
                       <div className="relative z-10 flex flex-col items-center">
                         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-sm animate-bounce">
                           <CheckCircle className="w-8 h-8 text-green-600" />
                         </div>
-                        <h3 className="font-semibold mb-1 text-slate-900">Gambar Wajah Terpilih</h3>
-                        <p className="text-xs text-slate-600 mb-4 bg-white/90 px-2 py-1 rounded">Model referensi wajah aktif</p>
+                        <h3 className="font-semibold mb-1 text-slate-900">Foto Produk Terpilih</h3>
+                        <p className="text-xs text-slate-600 mb-4 bg-white/90 px-2 py-1 rounded">Foto produk aktif</p>
                         <button
                           onClick={handleRemoveImage}
                           className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50 transition-colors shadow-sm"
@@ -682,8 +735,8 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                       <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <ImageIcon className="w-7 h-7 text-indigo-600" />
                       </div>
-                      <h3 className="font-bold text-slate-800 mb-1">Unggah Wajah Model</h3>
-                      <p className="text-xs text-slate-500 mb-4 max-w-[200px]">Opsional: Unggah foto wajah model utama Anda untuk dianalisis</p>
+                      <h3 className="font-bold text-slate-800 mb-1">Unggah Foto Produk</h3>
+                      <p className="text-xs text-slate-500 mb-4 max-w-[200px]">Opsional: Unggah foto produk Anda untuk dianalisis oleh AI</p>
                       <div className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50 shadow-sm pointer-events-none">Pilih File</div>
                     </>
                   )}
@@ -933,6 +986,28 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                       {formData.usePlaceholder ? "Sangat disarankan untuk workflow Midjourney cref" : "Memakai model deskriptif umum"}
                     </div>
                   </div>
+
+                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">Gunakan Placeholder Produk</h4>
+                        <p className="text-xs text-slate-500 max-w-[280px]">Menyisipkan tag khusus [PRODUCT_PLACEHOLDER] untuk memudahkan workflow penggantian nama produk.</p>
+                      </div>
+                      <button
+                        onClick={() => setFormData({ ...formData, useProductPlaceholder: !formData.useProductPlaceholder })}
+                        className="text-indigo-600 hover:scale-105 transition-transform focus:outline-none"
+                      >
+                        {formData.useProductPlaceholder ? (
+                          <ToggleRight className="w-10 h-10 animate-in fade-in" />
+                        ) : (
+                          <ToggleLeft className="w-10 h-10 text-slate-400" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="mt-3 bg-white px-3 py-2 rounded border border-slate-200/60 text-xs text-slate-600 italic">
+                      {formData.useProductPlaceholder ? "Sangat disarankan untuk template prompt siap pakai" : "Memakai deskripsi produk secara langsung"}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-6">
@@ -979,7 +1054,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                 </div>
               </div>
 
-              <div className="flex justify-between items-center mt-8">
+              <div className="flex justify-between items-center mt-8 gap-4 flex-wrap">
                 <button
                   onClick={handleBack}
                   disabled={isGenerating}
@@ -987,17 +1062,31 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                 >
                   Kembali
                 </button>
-                <button
-                  onClick={generatePromptsWithGemini}
-                  disabled={isGenerating}
-                  className="bg-indigo-600 text-white px-6 md:px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 text-sm"
-                >
-                  {isGenerating ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis</>
-                  ) : (
-                    <><Sparkles className="w-4 h-4 animate-bounce" /> Lanjut Buat Promt</>
+                <div className="flex items-center gap-3 ml-auto">
+                  {generatedResults.length > 0 && (
+                    <button
+                      onClick={() => setStep(4)}
+                      disabled={isGenerating}
+                      className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm border border-slate-200"
+                    >
+                      Batal & Lihat Hasil Sebelumnya
+                    </button>
                   )}
-                </button>
+                  <button
+                    onClick={generatePromptsWithGemini}
+                    disabled={isGenerating}
+                    className="bg-indigo-600 text-white px-6 md:px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 text-sm"
+                  >
+                    {isGenerating ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis</>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        {generatedResults.length > 0 ? "Hasilkan Prompt Baru" : "Lanjut Buat Prompt"}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1097,11 +1186,16 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                         🪝 Hook: {formData.useHook ? 'Aktif' : 'Non-Aktif'}
                       </span>
                       <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
-                        🖼️ Model: {formData.faceImage ? 'Referensi Wajah' : 'Umum'}
+                        🖼️ Foto Produk: {formData.productImage ? 'Dilampirkan' : 'Tidak Ada'}
                       </span>
                       {formData.usePlaceholder && (
                         <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
-                          🏷️ Tag Placeholder Aktif
+                          👤 Tag Placeholder Karakter
+                        </span>
+                      )}
+                      {formData.useProductPlaceholder && (
+                        <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
+                          📦 Tag Placeholder Produk
                         </span>
                       )}
                     </div>
