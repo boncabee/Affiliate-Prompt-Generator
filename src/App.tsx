@@ -401,16 +401,16 @@ JSON output structure:
 
     const systemPrompt = `Role: Expert Creative Director & Cinematic DP. Goal: Output a cohesive 5-scene JSON storyboard for a 30s affiliate promo video.
 Scenes:
-1. Hook Pembuka (0-3s): Attention-grabbing hook/pain point.
-2. Sorotan Estetika (3-8s): Product premium details/macro texture.
-3. Demonstrasi Aksi (8-15s): Active product usage/demo.
-4. Transformasi Kepuasan (15-22s): Positive emotional payoff.
-5. Call to Action (22-30s): Drive clicks/purchases.
+1. Hook Pembuka (0-3s): Attention-grabbing hook or emotional pain point.
+2. Sorotan Estetika (3-8s): Product premium details and macro texture zoom.
+3. Demonstrasi Aksi (8-15s): Active product usage/demo in real world.
+4. Transformasi Kepuasan (15-22s): Positive emotional payoff and satisfaction.
+5. Call to Action (22-30s): Outro driving clicks and yellow cart purchases.
 
-Prompt Guidelines:
-- "imagePrompt": Detailed English prompt (~50 words) with camera setup (shot on 85mm, f/1.4, lighting), style: ${formData.visualStyle}.
-- "videoPrompt": Dynamic English prompt (~50 words) describing motion (tracking, rack focus).
-- "voicePrompt": Expressive Indonesian VO with tone tags (e.g. [nada ceria], [SFX: ...]).
+CRITICAL: Output prompts MUST be highly detailed, descriptive, and rigid to avoid AI ambiguity:
+- "imagePrompt": Hyper-detailed English prompt (minimum 60-80 words). Must specify camera setup (e.g. shot on ARRI Alexa LF, 85mm lens, f/1.4, volumetric warm studio light, commercial color grading, sharp textures, photorealistic, 8k resolution) and style: ${formData.visualStyle}.
+- "videoPrompt": Extremely vivid, long action English prompt (minimum 60-80 words). Describe dynamic camera motions (e.g. slow glide tracking gimbal shot, smooth rack focus, panning at 60fps slow motion, realistic physics).
+- "voicePrompt": Expressive Indonesian VO script with tone tags (e.g. [nada ceria], [pause 1s]) and ambient SFX cues (e.g. [SFX: ...]).
 No markdown. JSON only.`;
 
     const faceRefInstruction = `an attractive Indonesian protagonist model`;
