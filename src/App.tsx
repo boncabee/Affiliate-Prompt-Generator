@@ -496,31 +496,36 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
         </header>
 
         {/* API Key Configuration */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6 max-w-xl mx-auto animate-in fade-in duration-300">
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="flex items-center gap-2 text-slate-700 shrink-0">
-              <Key className="w-4 h-4 text-indigo-500" />
-              <span className="text-xs font-bold">Gemini API:</span>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6 max-w-3xl mx-auto animate-in fade-in duration-300">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-slate-800 shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                <Key className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div>
+                <span className="text-xs font-bold block text-slate-800">Gemini AI API Key</span>
+                <span className="text-[10px] text-slate-500 block">Kunci untuk menghubungkan model AI</span>
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <div className="relative w-full sm:w-2/3">
+            <div className="flex flex-col sm:flex-row gap-3 grow md:justify-end">
+              <div className="relative w-full sm:max-w-xs">
                 <input
                   type="password"
-                  placeholder="Masukkan API Key Gemini Anda..."
-                  className="w-full pl-3 pr-16 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs bg-slate-50/50"
+                  placeholder="Masukkan API Key..."
+                  className="w-full pl-3 pr-20 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs bg-slate-50/50"
                   value={apiKey}
                   onChange={(e) => handleApiKeyChange(e.target.value)}
                 />
                 <button
                   onClick={() => validateApiKey(apiKey)}
                   disabled={apiKeyStatus === 'validating'}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 disabled:opacity-50 text-[10px] font-bold rounded border border-indigo-200 transition-colors"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 text-[10px] font-bold rounded-lg transition-colors shadow-sm"
                 >
                   {apiKeyStatus === 'validating' ? 'Checking...' : 'Verifikasi'}
                 </button>
               </div>
               <select
-                className="w-full sm:w-1/3 px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs bg-slate-50/50 font-bold text-slate-700"
+                className="w-full sm:w-48 px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs bg-slate-50/50 font-bold text-slate-700"
                 value={modelName}
                 onChange={(e) => handleModelChange(e.target.value)}
               >
@@ -532,7 +537,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
             </div>
           </div>
           {apiKey ? (
-            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-col gap-1 text-xs">
+            <div className="mt-3.5 pt-3.5 border-t border-slate-100 flex flex-col gap-1 text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 font-medium">Status API Key:</span>
                 {apiKeyStatus === 'idle' && (
@@ -561,23 +566,23 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
                 )}
               </div>
               {apiKeyStatus === 'invalid' && validationError && (
-                <p className="text-[10px] text-rose-500 mt-1 p-2 rounded bg-rose-50 border border-rose-100 font-mono leading-normal">
+                <p className="text-[10px] text-rose-500 mt-1.5 p-2.5 rounded-xl bg-rose-50 border border-rose-100 font-mono leading-normal">
                   Detail: {validationError}
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-[10px] text-amber-600 mt-2 font-medium leading-normal">
+            <p className="text-[10px] text-amber-600 mt-3 pt-3 border-t border-slate-100 font-medium leading-normal">
               <span className="inline-block mr-1">⚠️</span>Mode Preview: Masukkan API Key Anda di atas untuk menghubungkan AI. Dapatkan key gratis di <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-800 font-bold transition-colors">Google AI Studio</a>.
             </p>
           )}
         </div>
 
         {/* Progress Bar */}
-        <div className="flex justify-between items-center mb-8 relative px-4 md:px-12 max-w-xl mx-auto">
-          <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-slate-200 -z-10 rounded"></div>
+        <div className="flex justify-between items-center mb-10 relative px-6 md:px-16 max-w-3xl mx-auto">
+          <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1 bg-slate-200 -z-10 rounded"></div>
           <div
-            className="absolute left-6 top-1/2 -translate-y-1/2 h-1 bg-indigo-600 -z-10 rounded transition-all duration-500"
+            className="absolute left-8 top-1/2 -translate-y-1/2 h-1 bg-indigo-600 -z-10 rounded transition-all duration-500"
             style={{ width: `${((step - 1) / 3) * 100}%` }}
           ></div>
 
@@ -616,7 +621,7 @@ Berikan output JSON terstruktur yang berisi array "scenes" dengan persis 5 eleme
         </div>
 
         {apiError && (
-          <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl mb-6 flex items-start gap-3 max-w-2xl mx-auto animate-in fade-in duration-300">
+          <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl mb-6 flex items-start gap-3 max-w-3xl mx-auto animate-in fade-in duration-300">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
               <h4 className="font-bold text-sm">Terjadi Masalah Koneksi</h4>
