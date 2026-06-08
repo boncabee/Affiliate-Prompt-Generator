@@ -16,13 +16,19 @@ interface Scene {
   voicePrompt: string;
 }
 
+interface UploadedFile {
+  id: string;
+  url: string;
+  base64: string;
+  mimeType: string;
+}
+
 interface AiSuggestions {
   settings: string[];
   vibes: string[];
 }
 
 interface FormData {
-  productImage: string | null;
   category: string;
   productDetail: string;
   setting: string;
@@ -32,7 +38,6 @@ interface FormData {
   useProductPlaceholder: boolean;
   visualStyle: string;
   voiceStyle: string;
-  modelImage: string | null;
   modelGender: string;
   voiceLanguage: string;
 }
@@ -106,13 +111,10 @@ export default function App() {
     vibes: []
   });
 
-  const [productImageBase64, setProductImageBase64] = useState<string | null>(null);
-  const [productImageMimeType, setProductImageMimeType] = useState<string | null>(null);
-  const [modelImageBase64, setModelImageBase64] = useState<string | null>(null);
-  const [modelImageMimeType, setModelImageMimeType] = useState<string | null>(null);
+  const [productImages, setProductImages] = useState<UploadedFile[]>([]);
+  const [modelImages, setModelImages] = useState<UploadedFile[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
-    productImage: null,
     category: '',
     productDetail: '',
     setting: '',
@@ -122,7 +124,6 @@ export default function App() {
     useProductPlaceholder: false,
     visualStyle: 'Photorealistic',
     voiceStyle: 'Percakapan/Alami',
-    modelImage: null,
     modelGender: 'Bebas',
     voiceLanguage: 'Bahasa Indonesia'
   });
@@ -167,12 +168,9 @@ export default function App() {
     setApiError(null);
     setGeneratedResults([]);
     setAiSuggestions({ settings: [], vibes: [] });
-    setProductImageBase64(null);
-    setProductImageMimeType(null);
-    setModelImageBase64(null);
-    setModelImageMimeType(null);
+    setProductImages([]);
+    setModelImages([]);
     setFormData({
-      productImage: null,
       category: '',
       productDetail: '',
       setting: '',
@@ -182,63 +180,73 @@ export default function App() {
       useProductPlaceholder: false,
       visualStyle: 'Photorealistic',
       voiceStyle: 'Percakapan/Alami',
-      modelImage: null,
       modelGender: 'Bebas',
       voiceLanguage: 'Bahasa Indonesia'
     });
   };
 
   const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setFormData(prev => ({ ...prev, productImage: imageUrl }));
-
-      // Convert image to base64 for Gemini multimodal input
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        const commaIndex = base64String.indexOf(',');
-        if (commaIndex !== -1) {
-          setProductImageBase64(base64String.substring(commaIndex + 1));
-          setProductImageMimeType(file.type);
-        }
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach(file => {
+        const imageUrl = URL.createObjectURL(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          const commaIndex = base64String.indexOf(',');
+          if (commaIndex !== -1) {
+            const base64 = base64String.substring(commaIndex + 1);
+            setProductImages(prev => [
+              ...prev,
+              {
+                id: Math.random().toString(36).substring(2, 9),
+                url: imageUrl,
+                base64,
+                mimeType: file.type
+              }
+            ]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
-  const handleRemoveImage = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleRemoveImage = (id: string, e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    setFormData(prev => ({ ...prev, productImage: null }));
-    setProductImageBase64(null);
-    setProductImageMimeType(null);
+    setProductImages(prev => prev.filter(img => img.id !== id));
   };
 
   const handleModelImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setFormData(prev => ({ ...prev, modelImage: imageUrl }));
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        const commaIndex = base64String.indexOf(',');
-        if (commaIndex !== -1) {
-          setModelImageBase64(base64String.substring(commaIndex + 1));
-          setModelImageMimeType(file.type);
-        }
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach(file => {
+        const imageUrl = URL.createObjectURL(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          const commaIndex = base64String.indexOf(',');
+          if (commaIndex !== -1) {
+            const base64 = base64String.substring(commaIndex + 1);
+            setModelImages(prev => [
+              ...prev,
+              {
+                id: Math.random().toString(36).substring(2, 9),
+                url: imageUrl,
+                base64,
+                mimeType: file.type
+              }
+            ]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
-  const handleRemoveModelImage = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleRemoveModelImage = (id: string, e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    setFormData(prev => ({ ...prev, modelImage: null }));
-    setModelImageBase64(null);
-    setModelImageMimeType(null);
+    setModelImages(prev => prev.filter(img => img.id !== id));
   };
 
   const handleCopyText = (text: string, type: 'image' | 'video' | 'voice') => {
@@ -284,7 +292,7 @@ export default function App() {
 
     const systemPrompt = `Role: Creative Director. Goal: generate 8 ad settings & 8 vibes tailored to product/category. Output Indonesian. Catchy & short (2-4 words). No markdown. JSON output only.`;
 
-    const userPrompt = `Analyze attached product photo (if any) and info to output ideas.
+    const userPrompt = `Analyze the attached ${productImages.length} product reference photos and information to output suggestions.
 Category: ${formData.category}
 Detail: ${formData.productDetail}
 JSON output structure:
@@ -309,14 +317,14 @@ JSON output structure:
     };
 
     const parts: any[] = [{ text: userPrompt }];
-    if (productImageBase64 && productImageMimeType) {
+    productImages.forEach(img => {
       parts.push({
         inlineData: {
-          mimeType: productImageMimeType,
-          data: productImageBase64
+          mimeType: img.mimeType,
+          data: img.base64
         }
       });
-    }
+    });
 
     const payload = {
       contents: [{ parts }],
@@ -454,16 +462,16 @@ CRITICAL: Output prompts MUST be highly detailed, descriptive, and rigid to avoi
 No markdown. JSON only.`;
 
     const genderLabel = formData.modelGender === 'Laki-laki' ? 'male' : formData.modelGender === 'Perempuan' ? 'female' : 'unisex';
-    const faceRefInstruction = modelImageBase64
-      ? `an attractive Indonesian ${genderLabel} protagonist model matching the physical traits, hair, face and outfit shown in the attached model reference image`
+    const faceRefInstruction = modelImages.length > 0
+      ? `an attractive Indonesian ${genderLabel} protagonist model matching the physical traits, hair, face and outfit shown in the ${modelImages.length} attached model reference images`
       : `an attractive Indonesian ${genderLabel} protagonist model`;
 
     const placeholderInstruction = formData.usePlaceholder
       ? `Use '[PROTAGONIST_MODEL]' in prompts. Ref: ${faceRefInstruction}.`
       : `Describe model as: ${faceRefInstruction}.`;
 
-    const productRefInstruction = productImageBase64
-      ? `product in image (${formData.productDetail})`
+    const productRefInstruction = productImages.length > 0
+      ? `product in the ${productImages.length} attached reference images (${formData.productDetail})`
       : `${formData.productDetail}`;
 
     const productPlaceholderInstruction = formData.useProductPlaceholder
@@ -482,7 +490,7 @@ Voice Language: ${formData.voiceLanguage}
 Model writing style: ${placeholderInstruction}
 Product writing style: ${productPlaceholderInstruction}
 
-Note: If a product photo and/or model photo are attached, analyze them and incorporate their visual details (appearance, colors, style, features) into the imagePrompt and videoPrompt scenes.`;
+Note: If product photos and/or model photos are attached, analyze all of them (there are ${productImages.length} product photos and ${modelImages.length} model photos) and incorporate their visual details (appearance, colors, style, features, angles) into the imagePrompt and videoPrompt scenes.`;
 
     const responseSchema = {
       type: "OBJECT",
@@ -508,22 +516,22 @@ Note: If a product photo and/or model photo are attached, analyze them and incor
     };
 
     const parts: any[] = [{ text: userPrompt }];
-    if (productImageBase64 && productImageMimeType) {
+    productImages.forEach(img => {
       parts.push({
         inlineData: {
-          mimeType: productImageMimeType,
-          data: productImageBase64
+          mimeType: img.mimeType,
+          data: img.base64
         }
       });
-    }
-    if (modelImageBase64 && modelImageMimeType) {
+    });
+    modelImages.forEach(img => {
       parts.push({
         inlineData: {
-          mimeType: modelImageMimeType,
-          data: modelImageBase64
+          mimeType: img.mimeType,
+          data: img.base64
         }
       });
-    }
+    });
 
     const payload = {
       contents: [{ parts }],
@@ -746,47 +754,45 @@ Note: If a product photo and/or model photo are attached, analyze them and incor
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Upload Area */}
-                <label className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-all cursor-pointer bg-slate-50 relative overflow-hidden group min-h-[220px]">
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
+                {/* Upload Area for Product Photos */}
+                <div className="space-y-4">
+                  <label className="border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-all cursor-pointer bg-slate-50 relative overflow-hidden group min-h-[140px]">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/png, image/jpeg, image/webp"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <ImageIcon className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 text-xs">Unggah Foto Produk</h3>
+                    <p className="text-[10px] text-slate-500 mb-2 max-w-[200px]">Bisa upload lebih dari 1 foto. Semakin banyak referensi, hasil prompt akan semakin baik!</p>
+                    <div className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-[10px] font-semibold hover:bg-slate-50 shadow-sm pointer-events-none">Pilih File</div>
+                  </label>
 
-                  {formData.productImage ? (
-                    <>
-                      <img
-                        src={formData.productImage}
-                        alt="Preview Produk"
-                        className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-20 transition-opacity"
-                      />
-                      <div className="relative z-10 flex flex-col items-center">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-sm animate-bounce">
-                          <CheckCircle className="w-8 h-8 text-green-600" />
-                        </div>
-                        <h3 className="font-semibold mb-1 text-slate-900">Foto Produk Terpilih</h3>
-                        <p className="text-xs text-slate-600 mb-4 bg-white/90 px-2 py-1 rounded">Foto produk aktif</p>
-                        <button
-                          onClick={handleRemoveImage}
-                          className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50 transition-colors shadow-sm"
-                        >
-                          Hapus / Ganti
-                        </button>
+                  {productImages.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">File Terunggah ({productImages.length})</div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {productImages.map((img) => (
+                          <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                            <img src={img.url} alt="Preview" className="w-full h-full object-cover" />
+                            <button
+                              onClick={(e) => handleRemoveImage(img.id, e)}
+                              className="absolute top-1 right-1 bg-red-600/90 text-white w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-700 transition-colors shadow-sm"
+                              type="button"
+                              title="Hapus foto"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <ImageIcon className="w-7 h-7 text-indigo-600" />
-                      </div>
-                      <h3 className="font-bold text-slate-800 mb-1">Unggah Foto Produk</h3>
-                      <p className="text-xs text-slate-500 mb-4 max-w-[200px]">Opsional: Unggah foto produk Anda untuk dianalisis oleh AI</p>
-                      <div className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50 shadow-sm pointer-events-none">Pilih File</div>
-                    </>
+                    </div>
                   )}
-                </label>
+                </div>
 
                 {/* Form Inputs */}
                 <div className="space-y-5">
@@ -868,47 +874,45 @@ Note: If a product photo and/or model photo are attached, analyze them and incor
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Upload Area for Model Photo */}
-                <label className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-all cursor-pointer bg-slate-50 relative overflow-hidden group min-h-[220px]">
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    className="hidden"
-                    onChange={handleModelImageUpload}
-                  />
+                {/* Upload Area for Model Photos */}
+                <div className="space-y-4">
+                  <label className="border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-all cursor-pointer bg-slate-50 relative overflow-hidden group min-h-[140px]">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/png, image/jpeg, image/webp"
+                      className="hidden"
+                      onChange={handleModelImageUpload}
+                    />
+                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <ImageIcon className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 text-xs">Unggah Foto Model</h3>
+                    <p className="text-[10px] text-slate-500 mb-2 max-w-[200px]">Bisa upload lebih dari 1 foto. Semakin banyak referensi, hasil prompt akan semakin baik!</p>
+                    <div className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-[10px] font-semibold hover:bg-slate-50 shadow-sm pointer-events-none">Pilih File</div>
+                  </label>
 
-                  {formData.modelImage ? (
-                    <>
-                      <img
-                        src={formData.modelImage}
-                        alt="Preview Model"
-                        className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-20 transition-opacity"
-                      />
-                      <div className="relative z-10 flex flex-col items-center">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-sm animate-bounce">
-                          <CheckCircle className="w-8 h-8 text-green-600" />
-                        </div>
-                        <h3 className="font-semibold mb-1 text-slate-900">Foto Model Terpilih</h3>
-                        <p className="text-xs text-slate-600 mb-4 bg-white/90 px-2 py-1 rounded">Foto model aktif</p>
-                        <button
-                          onClick={handleRemoveModelImage}
-                          className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50 transition-colors shadow-sm"
-                        >
-                          Hapus / Ganti
-                        </button>
+                  {modelImages.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">File Terunggah ({modelImages.length})</div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {modelImages.map((img) => (
+                          <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                            <img src={img.url} alt="Preview" className="w-full h-full object-cover" />
+                            <button
+                              onClick={(e) => handleRemoveModelImage(img.id, e)}
+                              className="absolute top-1 right-1 bg-red-600/90 text-white w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-700 transition-colors shadow-sm"
+                              type="button"
+                              title="Hapus foto"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <ImageIcon className="w-7 h-7 text-indigo-600" />
-                      </div>
-                      <h3 className="font-bold text-slate-800 mb-1">Unggah Foto Model</h3>
-                      <p className="text-xs text-slate-500 mb-4 max-w-[200px]">Opsional: Unggah foto referensi wajah model Anda untuk dianalisis oleh AI</p>
-                      <div className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50 shadow-sm pointer-events-none">Pilih File</div>
-                    </>
+                    </div>
                   )}
-                </label>
+                </div>
 
                 {/* Form Inputs for Model */}
                 <div className="space-y-6">
@@ -1345,10 +1349,10 @@ Note: If a product photo and/or model photo are attached, analyze them and incor
                         🪝 Hook: {formData.useHook ? 'Aktif' : 'Non-Aktif'}
                       </span>
                       <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
-                        🖼️ Foto Produk: {formData.productImage ? 'Dilampirkan' : 'Tidak Ada'}
+                        🖼️ Foto Produk: {productImages.length > 0 ? `Dilampirkan (${productImages.length} Foto)` : 'Tidak Ada'}
                       </span>
                       <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
-                        👩 Foto Model: {formData.modelImage ? 'Dilampirkan' : 'Tidak Ada'}
+                        👩 Foto Model: {modelImages.length > 0 ? `Dilampirkan (${modelImages.length} Foto)` : 'Tidak Ada'}
                       </span>
                       {formData.usePlaceholder && (
                         <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
