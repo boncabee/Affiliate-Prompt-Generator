@@ -4,7 +4,7 @@ import {
   CheckCircle, RefreshCcw, Loader2, Sparkles,
   LayoutPanelLeft, Copy, Check, Volume2,
   Settings, ToggleLeft, ToggleRight, Mic, ChevronDown, ChevronUp,
-  ExternalLink, AlertCircle, Tag, Key
+  ExternalLink, AlertCircle, Tag, Key, MapPin
 } from 'lucide-react';
 
 interface Scene {
@@ -28,6 +28,15 @@ interface AiSuggestions {
   vibes: string[];
 }
 
+interface AiAnalysis {
+  targetAudience: string;
+  sellingPoints: string[];
+  creativeAngle: string;
+  recommendations: string[];
+  backgroundRecommendation: string;
+  vibeRecommendation: string;
+}
+
 interface FormData {
   category: string;
   productDetail: string;
@@ -36,6 +45,7 @@ interface FormData {
   useHook: boolean;
   usePlaceholder: boolean;
   useProductPlaceholder: boolean;
+  useLocationPlaceholder: boolean;
   visualStyle: string;
   voiceStyle: string;
   modelGender: string;
@@ -53,6 +63,8 @@ export default function App() {
   const [showMoreVibes, setShowMoreVibes] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [generatedResults, setGeneratedResults] = useState<Scene[]>([]);
+  const [activeSubTab, setActiveSubTab] = useState<'prompts' | 'analysis'>('prompts');
+  const [aiAnalysis, setAiAnalysis] = useState<AiAnalysis | null>(null);
 
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
   const [modelName, setModelName] = useState(() => localStorage.getItem('gemini_model_name') || 'gemini-1.5-flash');
@@ -114,6 +126,7 @@ export default function App() {
 
   const [productImages, setProductImages] = useState<UploadedFile[]>([]);
   const [modelImages, setModelImages] = useState<UploadedFile[]>([]);
+  const [backgroundImages, setBackgroundImages] = useState<UploadedFile[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
     category: '',
@@ -123,6 +136,7 @@ export default function App() {
     useHook: true,
     usePlaceholder: false,
     useProductPlaceholder: false,
+    useLocationPlaceholder: false,
     visualStyle: 'Photorealistic',
     voiceStyle: 'Percakapan/Alami',
     modelGender: 'Bebas',
@@ -144,10 +158,12 @@ export default function App() {
   ];
 
   const visualStyles = [
-    { name: 'Photorealistic', desc: 'Terlihat seperti foto asli dengan detail tekstur nyata.' },
-    { name: 'Documentary', desc: 'Gaya jurnalistik, alami, tanpa rekayasa, sering kali candid.' },
-    { name: 'Studio', desc: 'Bersih, tajam, dan bebas dari distraksi latar belakang.' },
-    { name: 'Cinematic', desc: 'Terlihat seperti adegan film dengan komposisi dramatis.' }
+    { name: 'Street Photography', desc: 'Gaya jalanan candid, butiran film, motion blur ringan, sudut kasual — terasa mentah dan nyata.' },
+    { name: 'Editorial / Majalah', desc: 'Komposisi tajam ala majalah mode, pencahayaan alami, nuansa high-fashion editorial.' },
+    { name: 'Documentary', desc: 'Jurnalistik spontan, tanpa rekayasa, pencahayaan available-light, feel reportase.' },
+    { name: 'Cinematic Film', desc: 'Seperti adegan film 35mm, warna tonal hangat, depth-of-field dangkal, bokeh analog.' },
+    { name: 'Lo-Fi / Analog', desc: 'Estetika kamera analog: grain kasar, warna pudar, vignette, efek light leak.' },
+    { name: 'Clean Studio', desc: 'Latar bersih terkontrol, softbox lighting, fokus sempurna — untuk product shot detail.' }
   ];
 
   const voiceStyles = [
@@ -164,6 +180,8 @@ export default function App() {
   const handleReset = () => {
     setStep(1);
     setActiveTab(0);
+    setActiveSubTab('prompts');
+    setAiAnalysis(null);
     setCopiedStates({ image: false, video: false, voice: false });
     setShowMoreSettings(false);
     setShowMoreVibes(false);
@@ -172,6 +190,7 @@ export default function App() {
     setAiSuggestions({ settings: [], vibes: [] });
     setProductImages([]);
     setModelImages([]);
+    setBackgroundImages([]);
     setFormData({
       category: '',
       productDetail: '',
@@ -180,6 +199,7 @@ export default function App() {
       useHook: true,
       usePlaceholder: false,
       useProductPlaceholder: false,
+      useLocationPlaceholder: false,
       visualStyle: 'Photorealistic',
       voiceStyle: 'Percakapan/Alami',
       modelGender: 'Bebas',
@@ -250,6 +270,38 @@ export default function App() {
   const handleRemoveModelImage = (id: string, e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setModelImages(prev => prev.filter(img => img.id !== id));
+  };
+
+  const handleBackgroundImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach(file => {
+        const imageUrl = URL.createObjectURL(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          const commaIndex = base64String.indexOf(',');
+          if (commaIndex !== -1) {
+            const base64 = base64String.substring(commaIndex + 1);
+            setBackgroundImages(prev => [
+              ...prev,
+              {
+                id: Math.random().toString(36).substring(2, 9),
+                url: imageUrl,
+                base64,
+                mimeType: file.type
+              }
+            ]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const handleRemoveBackgroundImage = (id: string, e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setBackgroundImages(prev => prev.filter(img => img.id !== id));
   };
 
   const handleCopyText = (text: string, type: 'image' | 'video' | 'voice') => {
@@ -387,6 +439,7 @@ JSON output structure:
   };
 
   // REVISI OUTPUT PROMPT: GEMINI AI MENGHASILKAN PROMPT YANG JAUH LEBIH DETIL, RIGID, DAN DESKRIPTIF
+  // REVISI OUTPUT PROMPT: GEMINI AI MENGHASILKAN PROMPT YANG JAUH LEBIH DETIL, RIGID, DAN DESKRIPTIF
   const generatePromptsWithGemini = async () => {
     setIsGenerating(true);
     setApiError(null);
@@ -394,6 +447,7 @@ JSON output structure:
     const productText = formData.useProductPlaceholder ? '[PRODUCT_PLACEHOLDER]' : (formData.productDetail || 'produk ini');
     const genderTerm = formData.modelGender === 'Laki-laki' ? 'model pria' : formData.modelGender === 'Perempuan' ? 'model wanita' : 'model Indonesia';
     const modelText = formData.usePlaceholder ? '[PROTAGONIST_MODEL]' : genderTerm;
+    const locationText = formData.useLocationPlaceholder ? '[LOCATION_PLACEHOLDER]' : (formData.setting || 'studio minimalis');
 
     if (!apiKey.trim()) {
       // Fallback mock storyboard if no API key is provided
@@ -401,67 +455,147 @@ JSON output structure:
         {
           seq: "Scene 1: Hook Pembuka",
           name: "Masalah & Daya Tarik",
-          description: `${modelText} melihat ke kamera dengan ekspresi bingung atau frustrasi sebelum menemukan solusi lewat ${productText}.`,
-          imagePrompt: `Extreme close-up shot of a young attractive Indonesian model looking frustrated, soft natural lighting, shallow depth of field, 85mm lens, f/1.8, commercial color grading, high detail.`,
-          videoPrompt: `A slow tilt-up showing the ${modelText} sitting in a cozy modern cafe, rubbing their temples, then smiling as they look down at ${productText} on the wooden table. 4k resolution, cinematic motion, 60fps.`,
-          voicePrompt: `[intonasi ceria dan santai] "Bosen nggak sih sama pilihan yang biasa-biasa aja? Kenalin nih solusi baru yang wajib kamu coba!"`
+          description: `${modelText} tertangkap kamera dalam momen candid di ${locationText} — ekspresi frustrasi yang relatable sebelum menemukan ${productText}. Diambil dengan sudut kasual ala street photography, seolah-olah direkam secara spontan oleh kawan.`,
+          imagePrompt: `Candid shot of ${modelText} caught mid-expression of mild frustration while sitting in ${locationText}, photographed from a slightly off-center angle as if captured by a friend with a handheld camera. Natural window light spilling across the face creating soft shadows. Shot on 35mm Kodak Portra 400 film stock, visible fine grain texture, subtle motion blur on the hands, shallow depth of field at f/1.8, slightly warm color cast with muted tones. Imperfect framing with the subject positioned off the rule-of-thirds. Dust motes floating in the light beam. No retouching, no airbrushing, skin texture and minor blemishes visible. Style: ${formData.visualStyle}. --ar ${formData.aspectRatio} --style raw --s 200`,
+          videoPrompt: `[Camera: handheld, subtle natural sway] ${modelText} sits in ${locationText}, rubbing their temples with a tired expression. A beat of silence — then they glance down at ${productText} resting on a weathered wooden surface. Micro-expression shift: eyebrows lift, lips part slightly in curiosity. Camera performs a lazy rack focus from the subject's face to the product. Ambient sounds: distant chatter, clinking cups, muffled city hum. Available light only — no studio lighting. Visible film grain, occasional lens flare from the window. Slight 35mm barrel distortion at frame edges. 24fps cinematic cadence, handheld micro-shake throughout. Aspect ratio ${formData.aspectRatio}. Duration: 5-6 seconds. Optimized for Kling AI 3.0 / Veo 3.1 / Runway 4.5.`,
+          voicePrompt: `[SFX: suara ambient kafe — dentingan sendok, obrolan samar, mesin espresso mendesis di kejauhan]\n[pause 0.5s]\n[intonasi natural, seperti ngobrol santai ke teman dekat — bukan narrator]\n"Eh, pernah nggak sih kamu ngerasa... capek sama pilihan yang gitu-gitu aja?"\n[pause 0.8s]\n[SFX: suara benda diletakkan di meja — 'tuk' pelan]\n[nada berubah — sedikit penasaran, volume turun]\n"Sampai akhirnya ketemu ${productText} ini..."\n[pause 0.3s]\n\n// AUDIO SYNC NOTE: Voice starts at 0.5s, aligns with subject's frustrated expression. Second line syncs with rack focus to product at ~3.5s. Total: 5.5s. Compatible with ElevenLabs / Fish Audio / Lovo.`
         },
         {
           seq: "Scene 2: Sorotan Estetika",
-          name: "Detail Premium Produk",
-          description: `Kamera melakukan zoom detail produk untuk menyoroti tekstur, kemasan premium, dan warna estetis dari ${productText}.`,
-          imagePrompt: `Macro product photography of ${productText} placed on a clean marble surface, studio softbox lighting, volumetric reflections, sharp textures, photorealistic, 8k.`,
-          videoPrompt: `Slow panning shot across the sleek curves and fine materials of ${productText}, highlighting the brand logo and pristine texture. Studio lighting, elegant dust particles floating in the light shaft.`,
-          voicePrompt: `[nada berbisik penuh kekaguman] "Lihat deh detailnya... Desainnya elegan banget dan dibikin dari bahan premium pilihan."`
+          name: "Detail Mentah Produk",
+          description: `Kamera menangkap detail tekstur, bahan, dan bentuk ${productText} dari berbagai sudut tidak sempurna — seperti seseorang yang penasaran mengamati produk secara dekat di ${locationText}. Tidak ada staging, terasa autentik.`,
+          imagePrompt: `Tight close-up of ${productText} resting on a slightly scuffed surface in ${locationText}, captured at an awkward casual angle as if someone leaned in to inspect it with their phone camera. Morning light raking across the product surface revealing authentic texture — thread count, material sheen, manufacturing details. One corner slightly out of focus due to the extremely shallow depth of field. Fingerprint smudge barely visible on reflective surface. Shot on Fujifilm X-T5 with vintage Helios 44-2 lens, characteristic swirly bokeh in background, subtle chromatic aberration at edges. Color palette: desaturated earth tones with a single pop of the product's dominant color. Fine film grain overlay. No HDR, no artificial glow, no perfect symmetry. Style: ${formData.visualStyle}. --ar ${formData.aspectRatio} --style raw --s 250`,
+          videoPrompt: `[Camera: slow orbiting macro shot, handheld with micro-tremor] Camera drifts slowly around ${productText} placed casually on a textured surface in ${locationText}. The camera path is imperfect — slightly wobbly, human-operated feel. Light source is a single window casting hard shadows that crawl across the product as the camera moves. Dust particles catch the light. Focus breathes naturally — pulling sharp on details then softening briefly before re-engaging. Audio: foley sounds of fabric rustling, a distant door closing. The product's texture is hyper-visible: stitching, grain, material weave. Color grade: lifted blacks, compressed highlights, Kodak 5219 film emulation. Subtle lens flare as camera crosses the light source. 24fps, slight 2% speed ramp at the end. Aspect ratio ${formData.aspectRatio}. Duration: 5-6 seconds. Optimized for Kling AI 3.0 / Veo 3.1 / Seedance 2.0.`,
+          voicePrompt: `[SFX: foley halus — jari menyentuh permukaan bahan, suara gesekan tekstil lembut]\n[pause 0.3s]\n[nada berbisik kagum, seakan bicara ke diri sendiri — bukan presentasi]\n"Coba pegang sendiri deh... bahannya tuh beda."\n[pause 0.5s]\n[volume naik sedikit, nada apresiasi genuine]\n"Detail kayak gini yang bikin ${productText} terasa... bukan sembarangan."\n[SFX: jari mengetuk pelan permukaan — 'tok tok' subtle]\n[pause 0.3s]\n\n// AUDIO SYNC NOTE: Voice starts at 0.3s after ambient foley. Whispered line matches macro focus pull at ~1s. Appreciation line lands with orbit reaching product's best angle at ~3s. Total: 5.5s. Compatible with ElevenLabs / Fish Audio.`
         },
         {
           seq: "Scene 3: Demonstrasi Aksi",
-          name: "Penggunaan Secara Riil",
-          description: `${modelText} menunjukkan kegunaan dan cara mengoperasikan/mengaplikasikan ${productText} dengan senyuman puas.`,
-          imagePrompt: `Close-up shot of an Indonesian model's hands holding and using ${productText}, warm morning light, cinematic atmosphere, f/2.0, detailed skin texture.`,
-          videoPrompt: `Over-the-shoulder tracking shot showing the ${modelText} demonstrating how to use ${productText} step-by-step. Smooth hand movements, natural lighting, clean background.`,
-          voicePrompt: `[intonasi bersemangat] "Nggak cuma keren, cara pakainya juga gampang banget lho. Praktis dan langsung kelihatan hasilnya!"`
+          name: "Penggunaan yang Terasa Nyata",
+          description: `${modelText} menggunakan ${productText} secara alami di ${locationText} — tanpa arahan berlebihan, gerakannya terasa organik dan bukan untuk kamera. Direkam seperti behind-the-scenes footage.`,
+          imagePrompt: `Mid-action shot of ${modelText} using ${productText} in ${locationText}, captured mid-motion with intentional motion blur on the hands suggesting genuine movement. Expression is unselfconscious — caught between concentration and satisfaction. Camera positioned at hip height shooting upward at a 15-degree angle, creating a casual observer perspective. Golden hour backlight creating a rim light on hair and shoulders with lens flare bleeding into the frame. Visible skin texture: pores, fine hair, minor imperfections that confirm authenticity. Shot on Canon EOS R5 with 50mm f/1.2 lens, natural color profile — no preset filters. Slightly underexposed by half a stop, shadows retain detail. Background elements in ${locationText} rendered as creamy bokeh with identifiable shapes. Style: ${formData.visualStyle}. --ar ${formData.aspectRatio} --style raw --s 200`,
+          videoPrompt: `[Camera: over-the-shoulder tracking, gimbal with intentional drift] ${modelText} picks up ${productText} and begins using it naturally in ${locationText}. The motion is unscripted — a slight fumble, a self-correcting grip, genuine micro-reactions. Camera follows from behind the shoulder, occasionally losing perfect framing before re-centering. The subject's breath is subtly visible in the ambient temperature. Background elements move naturally: a curtain sways, light shifts as a cloud passes. Sound design: the actual physical sounds of the product being handled — clicks, slides, material contact. No background music in this segment. Focus transitions between subject's face and hands organically. Film grain consistent at ISO 800 equivalent. Occasional rack focus breathing. 24fps with a single 1.5x speed ramp when the product clicks into place. Aspect ratio ${formData.aspectRatio}. Duration: 6-7 seconds. Optimized for Runway 4.5 / Veo 3.1 / Kling AI 3.0.`,
+          voicePrompt: `[SFX: suara produk saat digunakan — klik, geser, sentuhan material yang spesifik dan otentik]\n[pause 0.8s — biarkan suara produk berbicara dulu]\n[intonasi santai, sedikit terkejut senang — seolah baru menemukan sesuatu]\n"Oh wait... ini gampang banget ternyata."\n[pause 0.4s]\n[nada naik, genuine excitement]\n"Serius deh, ${productText} ini tuh langsung klik — nggak perlu mikir ribet."\n[SFX: suara 'snap' atau 'klik' yang satisfying — sinkron dengan aksi di video]\n[pause 0.2s]\n\n// AUDIO SYNC NOTE: First 0.8s is pure foley (product sounds). Voice enters at 0.8s matching the fumble-then-success moment. Excitement peak at ~3.5s syncs with speed ramp. Total: 6s. Compatible with ElevenLabs / Lovo / Fish Audio.`
         },
         {
           seq: "Scene 4: Transformasi Kepuasan",
-          name: "Hasil Akhir & Percaya Diri",
-          description: `${modelText} menunjukkan rasa bahagia dan kepuasan penuh setelah menggunakan ${productText}, memancarkan aura positif.`,
-          imagePrompt: `Portrait of a smiling Indonesian model looking confident and happy, holding ${productText}, sun flare background, outdoor tropical city street, volumetric lighting.`,
-          videoPrompt: `Medium shot of the ${modelText} laughing and showing off the final look/result with ${productText}. Dynamic camera dolly movement, vibrant colors, cinematic color grading.`,
-          voicePrompt: `[nada gembira] "Hasilnya bener-bener memuaskan! Bikin aku makin percaya diri seharian."`
+          name: "Momen Genuine Setelah Pemakaian",
+          description: `${modelText} menunjukkan kepuasan yang autentik setelah menggunakan ${productText} di ${locationText} — bukan senyum untuk kamera, melainkan ekspresi lega dan senang yang tertangkap secara candid.`,
+          imagePrompt: `Candid portrait of ${modelText} in ${locationText}, caught in a genuine moment of quiet satisfaction after using ${productText}. Not looking at camera — gazing slightly off-frame with a soft, unforced smile. Late afternoon light hitting at a 45-degree angle creating Rembrandt lighting naturally. Hair slightly tousled, posture relaxed and unposed. Shot at eye level from 3 meters distance with a 135mm telephoto lens compressing the background of ${locationText} into soft geometric shapes. Visible atmosphere: humidity haze, dust, or steam adding depth layers. Color palette: warm amber highlights, cool blue shadows — split toning. Kodak Ektar 100 color rendition: saturated but not garish. One slightly blown highlight on the forehead adding realism. Subtle vignette from the vintage lens. Style: ${formData.visualStyle}. --ar ${formData.aspectRatio} --style raw --s 300`,
+          videoPrompt: `[Camera: locked tripod with slow 2% push-in, almost imperceptible] ${modelText} sits relaxed in ${locationText} with ${productText}, completely at ease. A genuine laugh escapes — not performed, triggered by something offscreen. The camera catches it perfectly from a respectful distance using a long telephoto lens. Background life continues: people walk past slightly out of focus, shadows crawl across the wall. The subject touches the product unconsciously — a gesture of ownership and comfort. Wind subtly moves fabric and hair. Light flickers once as something passes the window. Audio: ambient room tone, the subject's actual breath and laugh recorded at proximity. Extremely shallow focus isolating the subject from the busy ${locationText}. Film emulation: Kodak Vision3 500T, blue-tinted shadows, warm skin tones. Subtle gate weave effect. 24fps, final frame holds 0.5s longer than expected. Aspect ratio ${formData.aspectRatio}. Duration: 5-6 seconds. Optimized for Veo 3.1 / Seedance 2.0 / Runway 4.5.`,
+          voicePrompt: `[SFX: ambient tenang — angin sepoi, suara jauh yang muffled, ruangan bernapas]\n[pause 0.5s]\n[intonasi lembut dan reflektif, seperti diary entry — intimate]\n"Yang bikin aku suka tuh bukan cuma hasilnya..."\n[pause 0.6s]\n[nada hangat, senyum terdengar dalam suara]\n"...tapi rasanya pas pakai ${productText}. Kayak... emang buat aku gitu."\n[SFX: hembusan napas puas yang subtle]\n[pause 0.8s — let the emotion land]\n\n// AUDIO SYNC NOTE: Reflective tone matches the telephoto intimate framing. First line at 0.5s syncs with the genuine smile moment. Second line at ~2.5s syncs with the unconscious product touch. Breath at ~4.5s. Total: 5.5s. Compatible with ElevenLabs / Fish Audio / Lovo.`
         },
         {
           seq: "Scene 5: Call to Action",
-          name: "Ajakan Klik Keranjang",
-          description: `Layar menunjukkan visual akhir produk beserta teks ajakan bertindak (CTA) untuk membeli via keranjang kuning.`,
-          imagePrompt: `Minimalist dynamic layout showing ${productText} with a clean soft pastel background, text overlay reading 'Beli Sekarang', f/2.8, professional ad campaign style.`,
-          videoPrompt: `A final slow zoom-out of ${productText} beside the ${modelText} who points smilingly towards the screen. Volumetric warm studio light.`,
-          voicePrompt: `[intonasi mengajak dan ceria] "Yuk, langsung klik keranjang kuning di bawah sekarang juga sebelum kehabisan ya!"`
+          name: "Ajakan Organik — Bukan Jualan",
+          description: `Scene penutup yang menunjukkan ${productText} di ${locationText} dengan komposisi editorial yang bersih namun tidak steril. ${modelText} memandang langsung ke kamera untuk pertama kalinya — koneksi personal yang kuat sebagai CTA.`,
+          imagePrompt: `Editorial flat-lay composition: ${productText} placed on a lived-in surface in ${locationText} — a coffee ring stain nearby, a crumpled napkin, a phone face-down — suggesting real life context. Shot from directly above at 90 degrees with a 35mm wide-angle lens creating slight barrel distortion at edges. Natural overhead light casting crisp shadows beneath each object. Color-coordinated but not staged: the arrangement feels discovered, not art-directed. Minimal negative space with subtle text overlay area. Film grain at ISO 400 equivalent. One object slightly overlapping the product suggesting casual placement. Warm white balance with a hint of green in the shadows. Matte finish texture on everything — no glossy reflections. Style: ${formData.visualStyle}. --ar ${formData.aspectRatio} --style raw --s 200`,
+          videoPrompt: `[Camera: slow pull-back reveal, starting tight on ${productText}] Final shot begins tight on ${productText} detail, then slowly pulls back to reveal ${modelText} in ${locationText} who has been there all along. At the widest point, ${modelText} looks directly into the camera lens for the first time in the entire video — a brief, knowing smile. Hold eye contact for 1.5 seconds. The pull-back reveals the full ${locationText} environment: lived-in, warm, authentic. Audio transitions from intimate foley to a subtle lo-fi beat fading in at 50% volume. A simple text overlay appears: lower-third, clean sans-serif font, no drop shadow. Final frame: product and subject coexist naturally. Slight camera settle at the end — the mechanical sound of a tripod locking. 24fps, the last 2 seconds at 85% speed for emotional weight. Aspect ratio ${formData.aspectRatio}. Duration: 6-7 seconds. Optimized for Kling AI 3.0 / Veo 3.1 / Omni.`,
+          voicePrompt: `[SFX: lo-fi beat mulai masuk perlahan — kick ringan, hi-hat pelan, bass hangat di 50% volume]\n[pause 0.3s]\n[intonasi direct tapi bersahabat, seperti rekomendasi personal — bukan sales pitch]\n"Kalau kamu juga mau ngerasain sendiri..."\n[pause 0.4s]\n[nada naik sedikit, senyum di suara, ajakan soft]\n"...${productText} ada di link bawah. Klik keranjang kuningnya sebelum kehabisan ya."\n[pause 0.3s]\n[bisikan cepat, playful]\n"Seriously, jangan kelamaan mikirnya."\n[SFX: suara klik/tap digital yang satisfying]\n[lo-fi beat fade out over 1.5s]\n\n// AUDIO SYNC NOTE: Beat enters at 0.3s. First line at 0.6s matches the pull-back start. CTA line at ~2.5s syncs with the direct eye contact moment. Whisper at ~4.5s adds personality over the held frame. Beat fades with final shot. Total: 6.5s. Compatible with ElevenLabs / Fish Audio / Lovo.`
         }
       ];
+
+      const mockAnalysis: AiAnalysis = {
+        targetAudience: `Konsumen urban usia 18-35 tahun dalam kategori ${formData.category} yang aktif di TikTok, Instagram Reels, dan YouTube Shorts. Mereka menghargai autentisitas, skeptis terhadap konten yang terlalu polished, dan lebih percaya pada review yang terasa personal dan jujur. Mereka mengonsumsi konten pendek berdurasi 15-60 detik dan membuat keputusan beli berdasarkan "feel" dan social proof, bukan spesifikasi teknis.`,
+        sellingPoints: [
+          `Tampilan visual yang autentik dan tidak terlihat seperti iklan — meningkatkan trust dan engagement secara organik.`,
+          `Pendekatan storytelling personal yang membuat penonton merasa sedang mendengar rekomendasi dari teman, bukan brand.`,
+          `Detail produk yang disajikan secara raw dan jujur — memperlihatkan tekstur, bahan, dan cara pakai yang sebenarnya tanpa editing berlebihan.`,
+          `CTA yang terintegrasi secara natural ke dalam narasi — bukan hard-sell yang memutus engagement.`
+        ],
+        creativeAngle: `Strategi 'Authentic Discovery' — video dirancang agar terasa seperti momen organik yang terekam, bukan konten terencana. Mulai dari ekspresi frustrasi yang relatable, berlanjut ke penemuan produk secara natural, demonstrasi real-use tanpa scripting berlebihan, dan ditutup CTA yang terasa seperti rekomendasi personal. Semua shot menggunakan teknik street photography dan available-light untuk memaksimalkan kepercayaan penonton.`,
+        recommendations: [
+          `Gunakan lo-fi beat ambient dengan tempo 75-90 BPM sebagai bed music, masuk perlahan di Scene 4 dan dominan di Scene 5. Hindari music library yang terlalu upbeat/corporate.`,
+          `Pencahayaan wajib available-light atau practical light saja — jangan gunakan ring light atau softbox yang membuat footage terlihat "YouTuber". Preferensi: golden hour, window light, atau lampu existing di lokasi.`,
+          `Edit dengan pace 'breathing' — jangan quick cut setiap 2 detik. Biarkan shot bernapas 4-6 detik per scene. Transisi: jump cut atau match cut, hindari dissolve/fade yang terasa dated.`,
+          `Rekam audio voiceover di ruangan non-treated (bukan studio kedap) agar ada sedikit room tone natural yang membuat narasi terasa conversational, bukan presentasi.`,
+          `Posting di jam 19:00-21:00 WIB untuk TikTok/Reels. Gunakan caption yang memicu komentar (pertanyaan terbuka) dan hashtag niche spesifik, bukan hashtag generik berjuta-juta views.`
+        ],
+        backgroundRecommendation: `Latar belakang ${formData.setting || 'Kafe Estetik'} memberikan konteks kehidupan nyata yang krusial untuk autentisitas. Elemen-elemen lived-in seperti bekas cangkir kopi, tumpukan buku, atau furniture yang sudah terpakai menciptakan texture visual yang membedakan konten ini dari iklan studio yang steril. Pencahayaan natural dari jendela di lokasi ini juga menghasilkan kualitas cahaya organik yang sangat sulit ditiru di studio.`,
+        vibeRecommendation: `Vibe ${formData.vibe || 'Modern & Estetik'} diimplementasikan melalui color grading yang muted-warm (bukan saturasi tinggi), pacing video yang deliberate (bukan frenetik), dan audio design yang berlapis tapi subtle. Kombinasi ini menciptakan "premium feel" tanpa terlihat over-produced — sweet spot yang paling efektif untuk konversi di audience Gen-Z dan millennial.`
+      };
 
       // Artificially wait for a short moment to simulate generator loading
       await new Promise(resolve => setTimeout(resolve, 1500));
       setGeneratedResults(mockScenes);
-      setStep(4);
+      setAiAnalysis(mockAnalysis);
+      setActiveSubTab('prompts');
+      setStep(5);
       setIsGenerating(false);
       return;
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-    const systemPrompt = `Role: Expert Creative Director & Cinematic DP. Goal: Output a cohesive 5-scene JSON storyboard for a 30s affiliate promo video.
-Scenes:
-1. Hook Pembuka (0-3s): Attention-grabbing hook or emotional pain point.
-2. Sorotan Estetika (3-8s): Product premium details and macro texture zoom.
-3. Demonstrasi Aksi (8-15s): Active product usage/demo in real world.
-4. Transformasi Kepuasan (15-22s): Positive emotional payoff and satisfaction.
-5. Call to Action (22-30s): Outro driving clicks and yellow cart purchases.
+    const systemPrompt = `Role: Award-winning Creative Director specializing in authentic social content that converts. You produce prompts that generate visuals indistinguishable from real photography/videography — never looking "AI-generated."
 
-CRITICAL: Output prompts MUST be highly detailed, descriptive, and rigid to avoid AI ambiguity:
-- "imagePrompt": Hyper-detailed English prompt (minimum 60-80 words). Must specify camera setup (e.g. shot on ARRI Alexa LF, 85mm lens, f/1.4, volumetric warm studio light, commercial color grading, sharp textures, photorealistic, 8k resolution), style: ${formData.visualStyle}, and append Midjourney aspect ratio parameter: --ar ${formData.aspectRatio}.
-- "videoPrompt": Extremely vivid, long action English prompt (minimum 60-80 words). Describe dynamic camera motions (e.g. slow glide tracking gimbal shot, smooth rack focus, panning at 60fps slow motion, realistic physics). Explicitly specify the aspect ratio of ${formData.aspectRatio} inside the prompt description.
-- "voicePrompt": Expressive voiceover script written strictly in the selected language: ${formData.voiceLanguage}. Must include tone tags (e.g. [nada ceria], [pause 1s]) and ambient SFX cues (e.g. [SFX: ...]).
+CORE PHILOSOPHY — ANTI-AI AESTHETIC:
+- NEVER use these cliché terms: "photorealistic", "hyper-realistic", "8k", "ultra HD", "masterpiece", "best quality", "perfect lighting", "flawless", "stunning", "breathtaking". These are dead giveaways of AI-generated content.
+- ALWAYS include natural imperfections: film grain (specify stock: Kodak Portra 400, Fuji Pro 400H, Kodak Ektar 100, Kodak Vision3 500T), subtle motion blur, slightly imperfect framing, lens distortion, chromatic aberration, dust motes, minor skin texture/blemishes, soft focus areas, light leaks, and occasional lens flare.
+- Use JOURNALISTIC / STREET PHOTOGRAPHY language: "caught mid-expression", "handheld micro-shake", "available light only", "candid angle as if shot by a friend", "focus breathes naturally", "imperfect composition", "shot from hip height".
+- Specify REAL camera equipment: "Shot on Fujifilm X-T5 with 56mm f/1.2", "Canon EOS R5 with vintage Helios 44-2", "35mm Kodak Portra 400 film stock", "Leica Q3 at f/1.7". Never say "DSLR camera" generically.
+- Color grading must reference REAL film stocks or profiles: "Kodak 5219 emulation", "VSCO Portra preset feel", "lifted blacks with compressed highlights", "split toning: warm highlights, cool shadows". Never say "cinematic color grading" without specifics.
+
+CRITICAL PLACEHOLDER INSTRUCTIONS:
+- If usePlaceholder is TRUE (indicated by '[PROTAGONIST_MODEL]' in writing style), substitute ALL references to the protagonist with EXACTLY "[PROTAGONIST_MODEL]" in all scene fields. NO physical descriptions.
+- If useProductPlaceholder is TRUE (indicated by '[PRODUCT_PLACEHOLDER]' in writing style), substitute ALL product references with EXACTLY "[PRODUCT_PLACEHOLDER]" in all scene fields. NO product names.
+- If useLocationPlaceholder is TRUE (indicated by '[LOCATION_PLACEHOLDER]' in location style), substitute ALL location/setting references with EXACTLY "[LOCATION_PLACEHOLDER]" in all scene fields. NO location names.
+
+OUTPUT FORMAT — CRITICAL FIELDS:
+1. "analysis" object (all in Indonesian):
+   - "targetAudience": Detailed psychographic + demographic profile (age, platform habits, purchase triggers, content preferences). Minimum 3 sentences.
+   - "sellingPoints": Array of 3-4 unique selling angles identified from product analysis. Each point must explain WHY it sells, not just WHAT it is.
+   - "creativeAngle": Strategic narrative framework explaining the storytelling approach and why it will convert for this specific audience.
+   - "recommendations": Array of 4-5 production tips covering: audio design, lighting approach, editing pace, posting strategy, and platform-specific optimization.
+   - "backgroundRecommendation": Why this specific background/location works for authenticity and conversion. Reference visual composition and audience psychology.
+   - "vibeRecommendation": How the chosen vibe translates to specific color grading, pacing, audio design decisions. Reference audience emotional triggers.
+
+2. "scenes" array — EXACTLY 5 sequential scenes forming a 30-second promo:
+   - "seq": Scene identifier (e.g. "Scene 1: Hook Pembuka")
+   - "name": Creative scene name in Indonesian
+   - "description": Detailed narrative action in Indonesian (minimum 2-3 sentences). Describe camera behavior, subject actions, emotional beats.
+   
+   - "imagePrompt": HYPER-DETAILED English prompt (minimum 80-120 words). MUST include:
+     * Specific camera angle and distance (not generic "close-up" — specify "tight close-up from 30cm at a 15-degree downward angle")
+     * Real lens and camera body (e.g., "shot on Fujifilm X-T5 with 56mm f/1.2 WR lens")
+     * Real film stock or color profile reference
+     * At least 2 natural imperfections (grain, blur, lens artifacts, skin texture, dust)
+     * Lighting described as source, not quality (e.g., "single north-facing window at 2pm" not "soft studio lighting")
+     * Visual style: ${formData.visualStyle}
+     * End with: --ar ${formData.aspectRatio} --style raw --s 200
+     * Optimized for: Midjourney 6.1 / GPT Image 2 / Imagen 4 / Nano Banana Pro
+
+   - "videoPrompt": HYPER-DETAILED English action prompt (minimum 80-120 words). MUST include:
+     * Camera movement notation at start: [Camera: type, rig, movement quality]
+     * Frame-by-frame action beats with micro-expressions and body language
+     * Sound design layer (ambient sounds, foley, NOT music unless Scene 5)
+     * Specific film emulation and color grade reference
+     * At least 2 imperfections: handheld shake, focus breathing, lens flare, barrel distortion
+     * Frame rate and speed ramp specifications (24fps base, note any ramps)
+     * Explicit aspect ratio: ${formData.aspectRatio}
+     * Duration per scene in seconds
+     * End with: "Optimized for Kling AI 3.0 / Veo 3.1 / Runway 4.5 / Seedance 2.0 / Omni"
+
+   - "voicePrompt": Professional audio script in ${formData.voiceLanguage}. MUST include:
+     * [SFX: ...] cues for ambient sounds and foley that MATCH the video scene
+     * [pause Xs] markers for natural speech rhythm and breath beats
+     * Tone direction for EVERY line: [intonasi ...] — describe emotional quality, NOT just "cheerful"
+     * Dialogue written as natural speech — contractions, filler words, conversational rhythm. NOT formal narration.
+     * End each scene's voicePrompt with an "// AUDIO SYNC NOTE:" comment block specifying:
+       - Exact timestamp when voice enters
+       - Which video action each line syncs with
+       - Total duration for this scene's audio
+       - "Compatible with ElevenLabs / Fish Audio / Lovo"
+     * Voice style: ${formData.voiceStyle}
+
+SCENE STRUCTURE:
+- Scene 1: Hook (relatable problem/curiosity — candid, handheld, documentary feel)
+- Scene 2: Product Detail (macro/close-up — focus on texture and material, NOT perfection)
+- Scene 3: Real Usage (demonstration — behind-the-scenes feel, organic movement)
+- Scene 4: Satisfaction (genuine emotion — telephoto, intimate distance, available light)
+- Scene 5: Organic CTA (soft call-to-action woven into narrative, NOT hard-sell)
+
+${formData.useHook ? "Scene 1 MUST open with an emotionally triggering hook: a relatable frustration, a provocative question, or an unexpected visual that stops the scroll within 1.5 seconds." : "Scene 1 should open directly with the product in context — no dramatic hook, just an authentic introduction."}
+
 No markdown. JSON only.`;
 
     const genderLabel = formData.modelGender === 'Laki-laki' ? 'male' : formData.modelGender === 'Perempuan' ? 'female' : 'unisex';
@@ -481,42 +615,72 @@ No markdown. JSON only.`;
       ? `Use '[PRODUCT_PLACEHOLDER]' in prompts. Ref: ${productRefInstruction}.`
       : `Describe product as: ${productRefInstruction}.`;
 
-    const userPrompt = `Generate 5-scene storyboard:
+    const backgroundRefInstruction = backgroundImages.length > 0
+      ? `setting shown in the ${backgroundImages.length} attached background/setting reference images (${formData.setting})`
+      : `${formData.setting}`;
+
+    const locationPlaceholderInstruction = formData.useLocationPlaceholder
+      ? `Use '[LOCATION_PLACEHOLDER]' in prompts. Ref: ${backgroundRefInstruction}.`
+      : `Describe location as: ${backgroundRefInstruction}.`;
+
+    const userPrompt = `Generate 5-scene storyboard and analysis:
 Category: ${formData.category}
 Product: ${formData.productDetail}
 Setting: ${formData.setting}
 Vibe: ${formData.vibe}
 Hook: ${formData.useHook ? "YES" : "NO"}
-Visual: ${formData.visualStyle}
+Visual Style: ${formData.visualStyle}
 Voice Style: ${formData.voiceStyle}
 Voice Language: ${formData.voiceLanguage}
 Screen Aspect Ratio: ${formData.aspectRatio}
 Model writing style: ${placeholderInstruction}
 Product writing style: ${productPlaceholderInstruction}
+Location writing style: ${locationPlaceholderInstruction}
 
-Note: If product photos and/or model photos are attached, analyze all of them (there are ${productImages.length} product photos and ${modelImages.length} model photos) and incorporate their visual details (appearance, colors, style, features, angles) into the imagePrompt and videoPrompt scenes.`;
+Note: If product photos, model photos, and/or background photos are attached, analyze all of them (there are ${productImages.length} product photos, ${modelImages.length} model photos, and ${backgroundImages.length} background photos) and incorporate their visual details (appearance, colors, style, features, angles) into the creative analysis and storyboard. If placeholders are set to YES, use '[PROTAGONIST_MODEL]', '[PRODUCT_PLACEHOLDER]', and/or '[LOCATION_PLACEHOLDER]' in the prompts while keeping the context aligned with the references.`;
 
     const responseSchema = {
       type: "OBJECT",
       properties: {
-        scenes: {
+        analysis: {
+          type: "OBJECT",
+          description: "Detailed analysis and recommendations generated by Gemini AI based on all inputs and references.",
+          properties: {
+            targetAudience: { type: "STRING", description: "Detailed description of the target audience (e.g. age range, preferences, habits) in Indonesian." },
+            sellingPoints: { 
+              type: "ARRAY", 
+              items: { type: "STRING" },
+              description: "3-4 key selling points of the product identified from the details and images, in Indonesian." 
+            },
+            creativeAngle: { type: "STRING", description: "The strategic creative angle chosen for this promo video in Indonesian." },
+            recommendations: {
+              type: "ARRAY",
+              items: { type: "STRING" },
+              description: "4-5 actionable recommendations for video production (e.g. background music, audio tempo, lighting, editing effects, calling-to-action tips) in Indonesian."
+            },
+            backgroundRecommendation: { type: "STRING", description: "Detailed justification and design strategy for the background location in Indonesian." },
+            vibeRecommendation: { type: "STRING", description: "Detailed justification and aesthetic choice for the vibe and mood in Indonesian." }
+          },
+          required: ["targetAudience", "sellingPoints", "creativeAngle", "recommendations", "backgroundRecommendation", "vibeRecommendation"]
+        },
+         scenes: {
           type: "ARRAY",
-          description: "An array of exactly 5 sequential scenes forming a coherent 30-second promotional video storyboard.",
+          description: "Exactly 5 sequential scenes forming a coherent 30-second promo. Each prompt must feel like real photography/videography — include natural imperfections, real camera specs, and film stock references.",
           items: {
             type: "OBJECT",
             properties: {
               seq: { type: "STRING", description: "Scene identifier (e.g. Scene 1: Hook Pembuka)" },
-              name: { type: "STRING", description: "Creative scene name" },
-              description: { type: "STRING", description: "Detailed narrative action explanation in Indonesian" },
-              imagePrompt: { type: "STRING", description: "Extremely long, hyper-detailed Midjourney/DALL-E 3 image prompt in English" },
-              videoPrompt: { type: "STRING", description: "Extremely long, hyper-detailed Sora/Runway/Kling video action prompt in English" },
-              voicePrompt: { type: "STRING", description: `Professional voiceover script written in ${formData.voiceLanguage} with tone markers and SFX cues` }
+              name: { type: "STRING", description: "Creative scene name in Indonesian" },
+              description: { type: "STRING", description: "Detailed narrative action in Indonesian (2-3 sentences). Describe camera, subject actions, emotional beats." },
+              imagePrompt: { type: "STRING", description: "80-120 word English prompt with real camera/lens specs, film stock, natural imperfections (grain, blur, dust), journalistic framing. Ends with --ar and --style raw. Optimized for Midjourney 6.1 / GPT Image 2 / Imagen 4 / Nano Banana Pro." },
+              videoPrompt: { type: "STRING", description: "80-120 word English action prompt starting with [Camera: notation]. Includes micro-expressions, foley sounds, film emulation, imperfections, fps/speed ramps, aspect ratio, duration. Optimized for Kling AI 3.0 / Veo 3.1 / Runway 4.5 / Seedance 2.0 / Omni." },
+              voicePrompt: { type: "STRING", description: `Professional audio script in ${formData.voiceLanguage} with [SFX:], [pause Xs], [intonasi:] markers. Natural conversational speech. Ends with // AUDIO SYNC NOTE block with timestamps and model compatibility (ElevenLabs / Fish Audio / Lovo).` }
             },
             required: ["seq", "name", "description", "imagePrompt", "videoPrompt", "voicePrompt"]
           }
         }
       },
-      required: ["scenes"]
+      required: ["analysis", "scenes"]
     };
 
     const parts: any[] = [{ text: userPrompt }];
@@ -529,6 +693,14 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
       });
     });
     modelImages.forEach(img => {
+      parts.push({
+        inlineData: {
+          mimeType: img.mimeType,
+          data: img.base64
+        }
+      });
+    });
+    backgroundImages.forEach(img => {
       parts.push({
         inlineData: {
           mimeType: img.mimeType,
@@ -550,7 +722,7 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
 
     let lastError: Error | null = null;
     let success = false;
-    let data: { scenes: Scene[] } | null = null;
+    let data: { scenes: Scene[]; analysis?: AiAnalysis } | null = null;
 
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
@@ -564,7 +736,7 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
           const jsonRes = await response.json();
           const textResponse = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
           if (textResponse) {
-            data = JSON.parse(textResponse) as { scenes: Scene[] };
+            data = JSON.parse(textResponse) as { scenes: Scene[]; analysis?: AiAnalysis };
             success = true;
             break;
           }
@@ -579,8 +751,105 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
     }
 
     if (success && data && data.scenes) {
-      setGeneratedResults(data.scenes);
-      setStep(4);
+      // Programmatic placeholder substitution as safety net
+      const processedScenes = data.scenes.map(scene => {
+        let imagePrompt = scene.imagePrompt;
+        let videoPrompt = scene.videoPrompt;
+        let voicePrompt = scene.voicePrompt;
+        let description = scene.description;
+
+        if (formData.useProductPlaceholder) {
+          const escapedProductDetail = formData.productDetail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const productRegex = new RegExp(escapedProductDetail, 'gi');
+          
+          imagePrompt = imagePrompt.replace(productRegex, '[PRODUCT_PLACEHOLDER]');
+          videoPrompt = videoPrompt.replace(productRegex, '[PRODUCT_PLACEHOLDER]');
+          voicePrompt = voicePrompt.replace(productRegex, '[PRODUCT_PLACEHOLDER]');
+          description = description.replace(productRegex, '[PRODUCT_PLACEHOLDER]');
+
+          const generalProductRegex = /\b(the product|produk ini|produk tersebut)\b/gi;
+          imagePrompt = imagePrompt.replace(generalProductRegex, '[PRODUCT_PLACEHOLDER]');
+          videoPrompt = videoPrompt.replace(generalProductRegex, '[PRODUCT_PLACEHOLDER]');
+          voicePrompt = voicePrompt.replace(generalProductRegex, '[PRODUCT_PLACEHOLDER]');
+          description = description.replace(generalProductRegex, '[PRODUCT_PLACEHOLDER]');
+        }
+
+        if (formData.usePlaceholder) {
+          const modelTerms = [
+            'young attractive Indonesian model',
+            'attractive Indonesian model',
+            'young Indonesian model',
+            'Indonesian model',
+            'protagonist model',
+            'the model',
+            'young attractive model',
+            'female model',
+            'male model',
+            'young woman',
+            'young man',
+            'model wanita',
+            'model pria',
+            'model perempuan',
+            'model laki-laki',
+            'model indonesia'
+          ];
+          
+          modelTerms.forEach(term => {
+            const regex = new RegExp('\\b' + term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\b', 'gi');
+            imagePrompt = imagePrompt.replace(regex, '[PROTAGONIST_MODEL]');
+            videoPrompt = videoPrompt.replace(regex, '[PROTAGONIST_MODEL]');
+            voicePrompt = voicePrompt.replace(regex, '[PROTAGONIST_MODEL]');
+            description = description.replace(regex, '[PROTAGONIST_MODEL]');
+          });
+
+          const generalModelRegex = /\b(the model|the protagonist|modelnya|model tersebut)\b/gi;
+          imagePrompt = imagePrompt.replace(generalModelRegex, '[PROTAGONIST_MODEL]');
+          videoPrompt = videoPrompt.replace(generalModelRegex, '[PROTAGONIST_MODEL]');
+          voicePrompt = voicePrompt.replace(generalModelRegex, '[PROTAGONIST_MODEL]');
+          description = description.replace(generalModelRegex, '[PROTAGONIST_MODEL]');
+        }
+
+        if (formData.useLocationPlaceholder) {
+          const escapedSetting = formData.setting.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const settingRegex = new RegExp(escapedSetting, 'gi');
+          
+          imagePrompt = imagePrompt.replace(settingRegex, '[LOCATION_PLACEHOLDER]');
+          videoPrompt = videoPrompt.replace(settingRegex, '[LOCATION_PLACEHOLDER]');
+          voicePrompt = voicePrompt.replace(settingRegex, '[LOCATION_PLACEHOLDER]');
+          description = description.replace(settingRegex, '[LOCATION_PLACEHOLDER]');
+
+          const generalLocationRegex = /\b(the background|the setting|the location|latar belakang|lokasi tersebut)\b/gi;
+          imagePrompt = imagePrompt.replace(generalLocationRegex, '[LOCATION_PLACEHOLDER]');
+          videoPrompt = videoPrompt.replace(generalLocationRegex, '[LOCATION_PLACEHOLDER]');
+          voicePrompt = voicePrompt.replace(generalLocationRegex, '[LOCATION_PLACEHOLDER]');
+          description = description.replace(generalLocationRegex, '[LOCATION_PLACEHOLDER]');
+        }
+
+        return {
+          ...scene,
+          imagePrompt,
+          videoPrompt,
+          voicePrompt,
+          description
+        };
+      });
+
+      setGeneratedResults(processedScenes);
+      setActiveSubTab('prompts');
+
+      if (data.analysis) {
+        setAiAnalysis(data.analysis);
+      } else {
+        setAiAnalysis({
+          targetAudience: `Audience dalam kategori ${formData.category} yang tertarik pada ${formData.productDetail}.`,
+          sellingPoints: [`Detail produk ${formData.productDetail}`, `Visual bergaya ${formData.visualStyle}`],
+          creativeAngle: `Menonjolkan keunikan produk ${formData.productDetail} secara langsung.`,
+          recommendations: [`Sesuaikan audio dengan gaya ${formData.voiceStyle}`, `Gunakan rasio aspek ${formData.aspectRatio}`],
+          backgroundRecommendation: `Latar belakang ${formData.setting} sangat ideal untuk menonjolkan fitur produk.`,
+          vibeRecommendation: `Vibe ${formData.vibe} menciptakan hubungan emosional yang kuat dengan penonton.`
+        });
+      }
+      setStep(5);
     } else {
       setApiError(lastError ? lastError.message : "Gagal memproses dengan Gemini AI. Silakan periksa jaringan Anda atau coba sesaat lagi.");
     }
@@ -694,10 +963,10 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
           <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1 bg-slate-200 -z-10 rounded"></div>
           <div
             className="absolute left-8 top-1/2 -translate-y-1/2 h-1 bg-indigo-600 -z-10 rounded transition-all duration-500"
-            style={{ width: `${((step - 1) / 3) * 100}%` }}
+            style={{ width: `${((step - 1) / 4) * 100}%` }}
           ></div>
 
-          {[1, 2, 3, 4].map((num) => {
+          {[1, 2, 3, 4, 5].map((num) => {
             const isCompleted = step > num;
             const isActive = step === num;
             return (
@@ -723,8 +992,9 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                   }`}>
                   {num === 1 && "Produk"}
                   {num === 2 && "Model"}
-                  {num === 3 && "Klarifikasi"}
-                  {num === 4 && "Hasil"}
+                  {num === 3 && "Latar"}
+                  {num === 4 && "Gaya & Vibe"}
+                  {num === 5 && "Hasil"}
                 </span>
               </div>
             );
@@ -732,16 +1002,34 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
         </div>
 
         {apiError && (
-          <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl mb-6 flex items-start gap-3 max-w-3xl mx-auto animate-in fade-in duration-300">
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-bold text-sm">Terjadi Masalah Koneksi</h4>
-              <p className="text-xs text-red-700 mt-1">{apiError}</p>
+          <div className="bg-red-50 border border-red-200 text-red-800 p-5 rounded-xl mb-6 flex items-start gap-3.5 max-w-3xl mx-auto animate-in fade-in duration-300">
+            <AlertCircle className="w-5.5 h-5.5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              {apiError.includes('429') ? (
+                <>
+                  <h4 className="font-bold text-sm text-red-900">Batas Kuota / Kecepatan Terlampaui (Error 429)</h4>
+                  <p className="text-xs text-red-700 mt-2 leading-relaxed">
+                    Permintaan Anda ditolak oleh server Google Gemini karena limit kuota per menit API Key gratis telah tercapai.
+                  </p>
+                  <div className="mt-3 bg-white/60 p-3 rounded-lg border border-red-200/50 text-xs text-red-800 space-y-1">
+                    <div className="font-semibold">Solusi yang dapat dilakukan:</div>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>Tunggu sekitar <strong>1 menit</strong> agar limit kuota di-reset otomatis oleh Google.</li>
+                      <li>Atau ganti dengan API Key lain melalui kolom <strong>API Key</strong> di bagian paling atas halaman.</li>
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h4 className="font-bold text-sm">Terjadi Masalah Koneksi</h4>
+                  <p className="text-xs text-red-700 mt-1">{apiError}</p>
+                </>
+              )}
               <button
                 onClick={generatePromptsWithGemini}
-                className="mt-3 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1"
+                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5 shadow-sm"
               >
-                <RefreshCcw className="w-3 h-3" /> Coba Hubungkan Kembali
+                <RefreshCcw className="w-3.5 h-3.5" /> Coba Hubungkan Kembali
               </button>
             </div>
           </div>
@@ -976,18 +1264,18 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                   onClick={handleNext}
                   className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 text-sm"
                 >
-                  Lanjut ke Klarifikasi <ChevronRight className="w-5 h-5" />
+                  Lanjut ke Latar Belakang <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: CLARIFICATION & STRATEGY */}
+          {/* STEP 3: LATAR BELAKANG / SETTING */}
           {step === 3 && (
             <div className="p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
-                <Settings className="w-5 h-5 text-indigo-600" />
-                Langkah 3: Klarifikasi & Strategi Promosi
+                <MapPin className="w-5 h-5 text-indigo-600" />
+                Langkah 3: Latar Belakang & Lokasi Skenario
               </h2>
 
               <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 mb-8">
@@ -996,125 +1284,230 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                     <Sparkles className="w-4 h-4 text-indigo-600" />
                   </div>
                   <p className="text-xs text-slate-700 leading-relaxed">
-                    Berdasarkan produk <span className="font-bold text-indigo-600">{formData.productDetail}</span> dan model yang diinput, tentukan setting latar belakang, suasana, visual, dan voiceover di bawah ini.
+                    Berdasarkan produk <span className="font-bold text-indigo-600">{formData.productDetail}</span>, tentukan latar belakang lokasi video promosi Anda. Anda dapat mengunggah referensi foto latar belakang, mengisi deskripsi lokasi, memilih rekomendasi AI, dan menggunakan placeholder lokasi.
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-                <div className="space-y-6">
-                  {/* Setting selection */}
+                {/* Upload Background images */}
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-2">Latar Belakang (Setting) Lokasi:</label>
+                    <label className="block text-sm font-bold text-slate-800 mb-2">Foto Referensi Latar Belakang (Opsional):</label>
+                    <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+                      Unggah foto lokasi/background pilihan untuk memandu visualisasi detail latar dalam scene.
+                    </p>
+                  </div>
+
+                  <label className="border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-all cursor-pointer bg-slate-50 relative overflow-hidden group min-h-[140px]">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/png, image/jpeg, image/webp"
+                      className="hidden"
+                      onChange={handleBackgroundImageUpload}
+                    />
+                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <ImageIcon className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <h3 className="font-bold text-slate-800 text-xs">Unggah Foto Latar Belakang</h3>
+                    <p className="text-[10px] text-slate-500 mb-2 max-w-[200px]">Bisa upload lebih dari 1 foto referensi.</p>
+                    <div className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-[10px] font-semibold hover:bg-slate-50 shadow-sm pointer-events-none">Pilih File</div>
+                  </label>
+
+                  {backgroundImages.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">File Terunggah ({backgroundImages.length})</div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {backgroundImages.map((img) => (
+                          <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                            <img src={img.url} alt="Preview" className="w-full h-full object-cover" />
+                            <button
+                              onClick={(e) => handleRemoveBackgroundImage(img.id, e)}
+                              className="absolute top-1 right-1 bg-red-600/90 text-white w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-700 transition-colors shadow-sm"
+                              type="button"
+                              title="Hapus foto"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Form Inputs for Background */}
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-800 mb-2">Deskripsi Latar Belakang (Setting):</label>
                     <input
                       type="text"
-                      placeholder="Pilih di bawah atau tulis kustom sendiri..."
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm"
+                      placeholder="Contoh: Kafe estetik berlantai kayu hangat dengan jendela besar..."
+                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm font-bold text-slate-800"
                       value={formData.setting}
                       onChange={(e) => setFormData({ ...formData, setting: e.target.value })}
                     />
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {aiSuggestions.settings.slice(0, 4).map(sug => (
-                          <button
-                            key={sug}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, setting: sug })}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${formData.setting === sug
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                              }`}
-                          >
-                            + {sug}
-                          </button>
-                        ))}
+                    
+                    {aiSuggestions.settings.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rekomendasi Latar (Analisis Gemini):</div>
+                        <div className="flex flex-wrap gap-2">
+                          {aiSuggestions.settings.slice(0, 4).map(sug => (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, setting: sug })}
+                              className={`px-3 py-1.5 border rounded-full text-xs font-semibold transition-all ${formData.setting === sug
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                                }`}
+                            >
+                              + {sug}
+                            </button>
+                          ))}
 
-                        {showMoreSettings && aiSuggestions.settings.slice(4, 8).map(sug => (
-                          <button
-                            key={sug}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, setting: sug })}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.setting === sug
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                              }`}
-                          >
-                            + {sug}
-                          </button>
-                        ))}
+                          {showMoreSettings && aiSuggestions.settings.slice(4, 8).map(sug => (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, setting: sug })}
+                              className={`px-3 py-1.5 border rounded-full text-xs font-semibold transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.setting === sug
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                                }`}
+                            >
+                              + {sug}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowMoreSettings(!showMoreSettings)}
+                          className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
+                        >
+                          {showMoreSettings ? (
+                            <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
+                          ) : (
+                            <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
+                          )}
+                        </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowMoreSettings(!showMoreSettings)}
-                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
-                      >
-                        {showMoreSettings ? (
-                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
-                        ) : (
-                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
-                        )}
-                      </button>
-                    </div>
+                    )}
                   </div>
 
+                  {/* Gunakan Placeholder Lokasi */}
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-indigo-600" />
+                        Gunakan Placeholder Latar Lokasi
+                      </h4>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                        Menyisipkan tag khusus <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[9px] font-bold text-slate-700">[LOCATION_PLACEHOLDER]</code> di skenario hasil akhir.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFormData({ ...formData, useLocationPlaceholder: !formData.useLocationPlaceholder })}
+                      className="shrink-0 transition-colors"
+                      type="button"
+                    >
+                      {formData.useLocationPlaceholder ? (
+                        <ToggleRight className="w-9 h-9 text-indigo-600" />
+                      ) : (
+                        <ToggleLeft className="w-9 h-9 text-slate-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center mt-8">
+                <button
+                  onClick={handleBack}
+                  className="px-5 py-3 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors text-sm"
+                >
+                  Kembali
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 text-sm"
+                >
+                  Lanjut ke Gaya & Vibe <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: GAYA & VIBE */}
+          {step === 4 && (
+            <div className="p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
+                <Settings className="w-5 h-5 text-indigo-600" />
+                Langkah 4: Gaya, Vibe & Voiceover
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+                <div className="space-y-6">
                   {/* Vibe selection */}
                   <div>
                     <label className="block text-sm font-bold text-slate-800 mb-2">Suasana (Vibe & Mood):</label>
                     <input
                       type="text"
                       placeholder="Pilih di bawah atau tulis kustom sendiri..."
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm"
+                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm font-bold text-slate-800"
                       value={formData.vibe}
                       onChange={(e) => setFormData({ ...formData, vibe: e.target.value })}
                     />
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {aiSuggestions.vibes.slice(0, 4).map(sug => (
-                          <button
-                            key={sug}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, vibe: sug })}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${formData.vibe === sug
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                              }`}
-                          >
-                            + {sug}
-                          </button>
-                        ))}
+                    {aiSuggestions.vibes.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rekomendasi Vibe (Analisis Gemini):</div>
+                        <div className="flex flex-wrap gap-2">
+                          {aiSuggestions.vibes.slice(0, 4).map(sug => (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, vibe: sug })}
+                              className={`px-3 py-1.5 border rounded-full text-xs font-semibold transition-all ${formData.vibe === sug
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                                }`}
+                            >
+                              + {sug}
+                            </button>
+                          ))}
 
-                        {showMoreVibes && aiSuggestions.vibes.slice(4, 8).map(sug => (
-                          <button
-                            key={sug}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, vibe: sug })}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.vibe === sug
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                              }`}
-                          >
-                            + {sug}
-                          </button>
-                        ))}
+                          {showMoreVibes && aiSuggestions.vibes.slice(4, 8).map(sug => (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, vibe: sug })}
+                              className={`px-3 py-1.5 border rounded-full text-xs font-semibold transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.vibe === sug
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                                }`}
+                            >
+                              + {sug}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowMoreVibes(!showMoreVibes)}
+                          className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
+                        >
+                          {showMoreVibes ? (
+                            <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
+                          ) : (
+                            <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
+                          )}
+                        </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowMoreVibes(!showMoreVibes)}
-                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
-                      >
-                        {showMoreVibes ? (
-                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
-                        ) : (
-                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
-                        )}
-                      </button>
-                    </div>
+                    )}
                   </div>
-                </div>
 
-                <div className="space-y-6">
                   {/* Gaya Visual */}
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-3">Gaya Visual (Tampilan):</label>
@@ -1135,7 +1528,9 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                       ))}
                     </div>
                   </div>
+                </div>
 
+                <div className="space-y-6">
                   {/* Target Rasio Layar */}
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-3">Rasio Layar (Target Visual):</label>
@@ -1161,6 +1556,7 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                       ))}
                     </div>
                   </div>
+
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
                     <div className="flex justify-between items-start">
                       <div>
@@ -1211,7 +1607,6 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                   </div>
                 </div>
 
-                {/* Voiceover Language selection (Request 5) */}
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-3">Bahasa Voiceover:</label>
                   <div className="space-y-2.5">
@@ -1250,7 +1645,7 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                 <div className="flex items-center gap-3 ml-auto">
                   {generatedResults.length > 0 && (
                     <button
-                      onClick={() => setStep(4)}
+                      onClick={() => setStep(5)}
                       disabled={isGenerating}
                       className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm border border-slate-200"
                     >
@@ -1276,8 +1671,8 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
             </div>
           )}
 
-          {/* STEP 4: RESULTS */}
-          {step === 4 && generatedResults.length > 0 && (
+          {/* STEP 5: RESULTS */}
+          {step === 5 && generatedResults.length > 0 && (
             <div className="flex flex-col md:flex-row min-h-[620px] animate-in fade-in slide-in-from-bottom-4 duration-300">
 
               {/* Sidebar Storyboard */}
@@ -1326,7 +1721,7 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
 
                 <div className="mt-6 pt-6 border-t border-slate-200 space-y-2">
                   <button
-                    onClick={() => setStep(3)}
+                    onClick={() => setStep(4)}
                     className="w-full py-2.5 flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors shadow-sm"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" /> Sesuaikan Strategi
@@ -1395,174 +1790,331 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                           📦 Tag Placeholder Produk
                         </span>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-                    <div>
-                      <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest block mb-1">
-                        {activeScene?.seq}
+                      {formData.useLocationPlaceholder && (
+                        <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
+                          📍 Tag Placeholder Lokasi
+                        </span>
+                      )}
+                      <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
+                        🖼️ Foto Latar: {backgroundImages.length > 0 ? `Dilampirkan (${backgroundImages.length} Foto)` : 'Tidak Ada'}
                       </span>
-                      <h2 className="text-xl md:text-2xl font-black text-slate-800 mb-2">{activeScene?.name}</h2>
                     </div>
                   </div>
 
-                  <div className="space-y-6">
-                    {/* Image Prompt */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-3">
-                        <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
-                          <ImageIcon className="w-4 h-4" />
-                          <span>Prompt Gambar</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                          <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
-                          <a
-                            href="https://www.midjourney.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-bold transition-all border border-indigo-200 flex items-center gap-0.5"
-                          >
-                            Midjourney <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                          <a
-                            href="https://chat.openai.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-bold transition-all border border-indigo-200 flex items-center gap-0.5"
-                          >
-                            DALL-E 3 <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                        </div>
-                      </div>
-                      <div className="relative">
-                        <textarea
-                          readOnly
-                          className="w-full h-32 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-indigo-400 transition-colors leading-relaxed font-mono"
-                          value={activeScene?.imagePrompt || ''}
-                        />
-                        <button
-                          onClick={() => handleCopyText(activeScene?.imagePrompt || '', 'image')}
-                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.image
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600'
-                            }`}
-                        >
-                          {copiedStates.image ? (
-                            <><Check className="w-3 h-3" /> Tersalin</>
-                          ) : (
-                            <><Copy className="w-3 h-3" /> Salin</>
-                          )}
-                        </button>
-                      </div>
+                  {aiAnalysis && (
+                    <div className="flex border-b border-slate-200 mb-6 mt-4">
+                      <button
+                        onClick={() => setActiveSubTab('prompts')}
+                        className={`py-2.5 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 focus:outline-none ${
+                          activeSubTab === 'prompts'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> Prompt Storyboard
+                      </button>
+                      <button
+                        onClick={() => setActiveSubTab('analysis')}
+                        className={`py-2.5 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 focus:outline-none relative ${
+                          activeSubTab === 'analysis'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <LayoutPanelLeft className="w-3.5 h-3.5" />
+                        Analisis & Rekomendasi AI
+                        <span className="absolute top-1.5 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                        </span>
+                      </button>
                     </div>
+                  )}
 
-                    {/* Video Prompt */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-3">
-                        <div className="flex items-center gap-2 text-blue-700 font-bold text-sm">
-                          <Video className="w-4 h-4" />
-                          <span>Prompt Video</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                          <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
-                          <a
-                            href="https://openai.com/sora"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
-                          >
-                            Sora <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                          <a
-                            href="https://runwayml.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
-                          >
-                            Runway <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                          <a
-                            href="https://klingai.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
-                          >
-                            Kling AI <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
+                  {activeSubTab === 'prompts' ? (
+                    <>
+                      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+                        <div>
+                          <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest block mb-1">
+                            {activeScene?.seq}
+                          </span>
+                          <h2 className="text-xl md:text-2xl font-black text-slate-800 mb-2">{activeScene?.name}</h2>
                         </div>
                       </div>
-                      <div className="relative">
-                        <textarea
-                          readOnly
-                          className="w-full h-32 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-blue-400 transition-colors leading-relaxed font-mono"
-                          value={activeScene?.videoPrompt || ''}
-                        />
-                        <button
-                          onClick={() => handleCopyText(activeScene?.videoPrompt || '', 'video')}
-                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.video
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
-                            }`}
-                        >
-                          {copiedStates.video ? (
-                            <><Check className="w-3 h-3" /> Tersalin</>
-                          ) : (
-                            <><Copy className="w-3 h-3" /> Salin</>
-                          )}
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Voice Prompt & Script */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-3">
-                        <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
-                          <Volume2 className="w-4 h-4" />
-                          <span>Prompt Suara, Naskah & Panduan Audio</span>
+                      <div className="space-y-6">
+                        {/* Image Prompt */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-3">
+                            <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
+                              <ImageIcon className="w-4 h-4" />
+                              <span>Prompt Gambar</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                              <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
+                              <a
+                                href="https://www.midjourney.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-bold transition-all border border-indigo-200 flex items-center gap-0.5"
+                              >
+                                Midjourney 6.1 <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              <a
+                                href="https://chat.openai.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-bold transition-all border border-indigo-200 flex items-center gap-0.5"
+                              >
+                                GPT Image 2 <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              <a
+                                href="https://deepmind.google/technologies/imagen-3/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-bold transition-all border border-indigo-200 flex items-center gap-0.5"
+                              >
+                                Imagen 4 <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              <a
+                                href="https://www.nanobanana.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded font-bold transition-all border border-indigo-200 flex items-center gap-0.5"
+                              >
+                                Nano Banana <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <textarea
+                              readOnly
+                              className="w-full h-48 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-indigo-400 transition-colors leading-relaxed font-mono"
+                              value={activeScene?.imagePrompt || ''}
+                            />
+                            <button
+                              onClick={() => handleCopyText(activeScene?.imagePrompt || '', 'image')}
+                              className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.image
+                                ? 'bg-green-600 text-white hover:bg-green-700'
+                                : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600'
+                                }`}
+                            >
+                              {copiedStates.image ? (
+                                <><Check className="w-3 h-3" /> Tersalin</>
+                              ) : (
+                                <><Copy className="w-3 h-3" /> Salin</>
+                              )}
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                          <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
-                          <a
-                            href="https://elevenlabs.io"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-bold transition-all border border-emerald-200 flex items-center gap-0.5"
-                          >
-                            ElevenLabs <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                          <a
-                            href="https://lovo.ai"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-bold transition-all border border-emerald-200 flex items-center gap-0.5"
-                          >
-                            Lovo AI <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
+
+                        {/* Video Prompt */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-3">
+                            <div className="flex items-center gap-2 text-blue-700 font-bold text-sm">
+                              <Video className="w-4 h-4" />
+                              <span>Prompt Video</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                              <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
+                              <a
+                                href="https://klingai.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
+                              >
+                                Kling AI 3.0 <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              <a
+                                href="https://deepmind.google/technologies/veo/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
+                              >
+                                Veo 3.1 <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              <a
+                                href="https://runwayml.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
+                              >
+                                Runway 4.5 <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              <a
+                                href="https://seedance.ai"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded font-bold transition-all border border-blue-200 flex items-center gap-0.5"
+                              >
+                                Seedance 2.0 <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <textarea
+                              readOnly
+                              className="w-full h-48 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-blue-400 transition-colors leading-relaxed font-mono"
+                              value={activeScene?.videoPrompt || ''}
+                            />
+                            <button
+                              onClick={() => handleCopyText(activeScene?.videoPrompt || '', 'video')}
+                              className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.video
+                                ? 'bg-green-600 text-white hover:bg-green-700'
+                                : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
+                                }`}
+                            >
+                              {copiedStates.video ? (
+                                <><Check className="w-3 h-3" /> Tersalin</>
+                              ) : (
+                                <><Copy className="w-3 h-3" /> Salin</>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Voice Prompt & Script */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-3">
+                            <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
+                              <Volume2 className="w-4 h-4" />
+                              <span>Prompt Suara, Naskah & Panduan Audio</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                              <span className="text-slate-400 font-medium mr-1">Rekomendasi Tools:</span>
+                              <a
+                                href="https://elevenlabs.io"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-bold transition-all border border-emerald-200 flex items-center gap-0.5"
+                              >
+                                ElevenLabs <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              <a
+                                href="https://lovo.ai"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-bold transition-all border border-emerald-200 flex items-center gap-0.5"
+                              >
+                                Lovo AI <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                              <a
+                                href="https://fish.audio"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-bold transition-all border border-emerald-200 flex items-center gap-0.5"
+                              >
+                                Fish Audio <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <textarea
+                              readOnly
+                              className="w-full h-48 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-emerald-400 transition-colors leading-relaxed"
+                              value={activeScene?.voicePrompt || ''}
+                            />
+                            <button
+                              onClick={() => handleCopyText(activeScene?.voicePrompt || '', 'voice')}
+                              className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.voice
+                                ? 'bg-green-600 text-white hover:bg-green-700'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
+                                }`}
+                            >
+                              {copiedStates.voice ? (
+                                <><Check className="w-3 h-3" /> Tersalin</>
+                              ) : (
+                                <><Copy className="w-3 h-3" /> Salin</>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="relative">
-                        <textarea
-                          readOnly
-                          className="w-full h-32 p-4 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 resize-none focus:outline-none focus:border-emerald-400 transition-colors leading-relaxed"
-                          value={activeScene?.voicePrompt || ''}
-                        />
-                        <button
-                          onClick={() => handleCopyText(activeScene?.voicePrompt || '', 'voice')}
-                          className={`absolute top-2 right-2 p-2 px-3 rounded-md text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${copiedStates.voice
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
-                            }`}
-                        >
-                          {copiedStates.voice ? (
-                            <><Check className="w-3 h-3" /> Tersalin</>
-                          ) : (
-                            <><Copy className="w-3 h-3" /> Salin</>
-                          )}
-                        </button>
+                    </>
+                  ) : (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                      {/* Creative Angle */}
+                      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl p-5 shadow-xs">
+                        <h3 className="font-extrabold text-xs text-indigo-900 flex items-center gap-2 mb-2.5">
+                          <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" />
+                          Sudut Pandang Kreatif (Creative Angle)
+                        </h3>
+                        <p className="text-[11px] text-indigo-950 leading-relaxed font-semibold">
+                          {aiAnalysis?.creativeAngle}
+                        </p>
+                      </div>
+
+                      {/* Target Audience */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                        <h3 className="font-extrabold text-xs text-slate-800 flex items-center gap-2 mb-2.5">
+                          <span className="text-sm">🎯</span> Target Audiens Iklan
+                        </h3>
+                        <p className="text-[11px] text-slate-650 leading-relaxed font-medium">
+                          {aiAnalysis?.targetAudience}
+                        </p>
+                      </div>
+
+                      {/* Strategic Background & Vibe Recommendations */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Background Recommendation */}
+                        <div className="bg-indigo-50/30 border border-indigo-100/80 rounded-xl p-5 shadow-2xs">
+                          <h3 className="font-extrabold text-xs text-indigo-900 flex items-center gap-2 mb-2.5">
+                            <MapPin className="w-4 h-4 text-indigo-650" />
+                            Rekomendasi Latar Belakang AI (Strategic Background)
+                          </h3>
+                          <p className="text-[11px] text-indigo-950 leading-relaxed font-semibold">
+                            {aiAnalysis?.backgroundRecommendation || "Tidak tersedia."}
+                          </p>
+                        </div>
+
+                        {/* Vibe Recommendation */}
+                        <div className="bg-rose-50/30 border border-rose-100/80 rounded-xl p-5 shadow-2xs">
+                          <h3 className="font-extrabold text-xs text-rose-900 flex items-center gap-2 mb-2.5">
+                            <Sparkles className="w-4 h-4 text-rose-650" />
+                            Rekomendasi Vibe & Mood AI (Strategic Vibe)
+                          </h3>
+                          <p className="text-[11px] text-rose-950 leading-relaxed font-semibold">
+                            {aiAnalysis?.vibeRecommendation || "Tidak tersedia."}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Selling Points & Recommendations Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Selling Points */}
+                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs">
+                          <h3 className="font-extrabold text-xs text-slate-800 flex items-center gap-2 mb-3">
+                            <span className="text-sm">💎</span> Fitur/Selling Points Utama
+                          </h3>
+                          <ul className="space-y-2">
+                            {aiAnalysis?.sellingPoints.map((point, idx) => (
+                              <li key={idx} className="text-[11px] text-slate-600 flex items-start gap-2 leading-relaxed">
+                                <span className="w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
+                                  {idx + 1}
+                                </span>
+                                <span>{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Production Recommendations */}
+                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs">
+                          <h3 className="font-extrabold text-xs text-slate-800 flex items-center gap-2 mb-3">
+                            <span className="text-sm">🎬</span> Rekomendasi Produksi & Editing
+                          </h3>
+                          <ul className="space-y-2.5">
+                            {aiAnalysis?.recommendations.map((rec, idx) => (
+                              <li key={idx} className="text-[11px] text-slate-650 flex items-start gap-2 leading-relaxed">
+                                <CheckCircle className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                                <span>{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 animate-pulse">
