@@ -1,148 +1,126 @@
-# Affiliate Prompt Generator 🚀
+# Affiliate Prompt Generator
 
-> **A powerful, production-grade AI-powered marketing storyboard creator that generates high-fidelity prompts for images, videos, and voiceovers using Google's official Gemini AI API.**
+A production-grade AI-powered marketing storyboard creator that generates high-fidelity prompts for images, videos, and voiceovers using Google's Gemini API. 
 
-[![React](https://img.shields.io/badge/React-18-blue.svg?style=flat-square&logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.0-purple.svg?style=flat-square&logo=vite)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v3-38bdf8.svg?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
-
-Designed specifically for affiliate marketers, content creators, and social commerce sellers, **Affiliate Prompt Generator** transforms a simple product description and an optional photo into a cohesive, structured 5-scene campaign. In seconds, you get production-ready creative prompts for Midjourney, DALL-E, Sora, Runway, Kling, and voiceover scripts ready for ElevenLabs or TikTok voice synthesis.
+Designed for affiliate marketers, content creators, and social commerce agencies, this tool transforms a product concept and optional visual assets into a cohesive 5-scene ad campaign sequence. It generates natural, organic prompts that bypass common AI visual tropes, fully optimized for the latest generation of media synthesis models.
 
 ---
 
-## 📸 Interface Preview
+## Key Features
 
-![Affiliate Prompt Generator Screenshot](screenshot.png)
+- **5-Step Campaign Pipeline**:
+  - **Step 1: Product**: Details product information, category, reference images, and configures the product placeholder toggle.
+  - **Step 2: Model**: Configures the protagonist character parameters, reference images, and model placeholder toggle.
+  - **Step 3: Background**: Handles setting description, location reference images, and background placeholder toggle.
+  - **Step 4: Style & Vibe**: Configures visual style, video vibe, voiceover style, language, aspect ratio, and video hook setting.
+  - **Step 5: Results**: Outputs a detailed 5-scene storyboard (Image, Video, Voice) and strategic AI recommendations.
 
----
+- **Anti-AI Prompting Strategy**: 
+  Prompts are designed to bypass the flat, plasticky AI look by avoiding clichés (e.g., "photorealistic", "hyper-realistic") and introducing realistic imperfections such as film grain (Kodak Portra, Vision3), motion blur, dust motes, focus breathing, and casual street photography framing.
 
-## 🎯 Table of Contents
+- **Synchronized Audio-Video Workflows**:
+  Voiceover prompts contain exact foley instructions, pause markers, and an `// AUDIO SYNC NOTE` detailing voice entry, video action correlation, and total segment duration.
 
-1. [Key Features](#-key-features)
-2. [Technology Stack](#%EF%B8%8F-technology-stack)
-3. [Project Structure](#-project-structure)
-4. [Getting Started](#-getting-started)
-   - [Prerequisites](#prerequisites)
-   - [Installation](#1-installation)
-   - [Running Locally](#2-running-locally)
-   - [Building for Production](#3-building-for-production)
-5. [API Integration & Configuration](#-api-integration--configuration)
-6. [Best Practices for Midjourney/Sora Workflow](#-best-practices-for-midjourneysora-workflow)
-7. [License](#-license)
+- **Multimodal Visual Analysis**:
+  Supports uploading multiple product, model, and background images. The Gemini API analyzes colors, textures, lighting, and composition to yield highly context-aware recommendations.
 
----
-
-## 🌟 Key Features
-
-*   **⚡ Live Gemini AI Integration**: Connects directly to Google's official Generative Language endpoints, giving you direct access to the latest generative models.
-*   **🤖 Flexible Model Selection**: Choose dynamically between `gemini-1.5-flash`, `gemini-2.0-flash`, `gemini-2.5-flash`, and `gemini-1.5-pro` directly from the interface.
-*   **📸 Multimodal Product Photo Analysis**: Upload your product photo in Step 1. Gemini AI analyzes the image's colors, textures, and shape to suggest the most matching background settings and promotional vibes in Step 2.
-*   **🏷️ Custom Placeholders**:
-    *   `[PROTAGONIST_MODEL]`: Switch this on to output standardized model tags (ideal for Midjourney `--cref` character swap workflows).
-    *   `[PRODUCT_PLACEHOLDER]`: Standardizes product references (ideal for templating prompts).
-*   **💡 Smart Navigation & Token Caching**: If you edit your settings, the application caches previous results and allows you to return to your generated prompts without consuming extra API tokens.
-*   **🎬 5-Scene Sequential Output**: Structurally outputs the entire narrative sequence:
-    1.  *Scene 1: Hook Pembuka* (Attention-grabbing intro)
-    2.  *Scene 2: Sorotan Estetika* (Premium macro product detail zoom)
-    3.  *Scene 3: Demonstrasi Aksi* (Real-world usage/demo)
-    4.  *Scene 4: Transformasi Kepuasan* (Emotional positive payoff)
-    5.  *Scene 5: Call to Action* (Driving viewers to click and buy)
-*   **📋 One-Click Copy Buttons**: Instantly copy generated Image prompts, Video prompts, or Voiceover script segments.
+- **Smart Caching & UI Resilience**:
+  Users can step back and adjust parameters in the wizard without losing generated storyboard states or unnecessarily consuming API tokens. Fallback mock data allows for evaluation without an API key.
 
 ---
 
-## 🛠️ Technology Stack
+## Technical Stack
 
-*   **Core**: React 18 (Hooks, TypeScript Strict Mode)
-*   **Styling**: Tailwind CSS v3 & PostCSS
-*   **Icons**: Lucide React
-*   **Build Tooling**: Vite
-*   **Integration**: Official Google Generative Language REST API (`fetch` with dynamic retry and error fallback logic)
+- **Core Framework**: React 18 (TypeScript)
+- **Styling**: Tailwind CSS v3 & PostCSS (Responsive, dark-accented UI)
+- **Icons**: Lucide React
+- **Build Tooling**: Vite & TypeScript compiler
+- **API Client**: Native fetch configuration with exponential backoff retry logic for the Gemini API
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
 Affiliate-Prompt-Generator/
-├── .git/                  # Local Git repository
-├── node_modules/          # Node.js dependencies
-├── src/                   # Main source code
-│   ├── App.tsx            # Main state logic and components
-│   ├── main.tsx           # React mounting entrypoint
-│   └── index.css          # Tailwind setup and custom styling
-├── index.html             # Base HTML template
-├── screenshot.png         # Main interface preview
-├── tsconfig.json          # TypeScript compilation options
-├── vite.config.ts         # Vite bundler options
-├── tailwind.config.js     # Tailwind CSS utility setup
-└── README.md              # Project documentation
+├── src/
+│   ├── App.tsx          # Core wizard state, Gemini API execution, and UI markup
+│   ├── main.tsx         # Application mount entrypoint
+│   └── index.css        # Tailwind directives and custom global design tokens
+├── index.html           # Document template
+├── tailwind.config.js   # Tailwind CSS configuration
+├── postcss.config.js    # PostCSS processor rules
+├── tsconfig.json        # Strict TypeScript configuration compiler options
+└── README.md            # Technical documentation
 ```
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-*   [Node.js](https://nodejs.org/) (Version 18 or above recommended)
-*   A package manager (npm, yarn, or pnpm)
+- Node.js (v18.0.0 or higher)
+- npm, yarn, or pnpm
 
-### 1. Installation
+### Installation
 
-Clone the repository and enter the directory:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/boncabee/Affiliate-Prompt-Generator.git
+   cd Affiliate-Prompt-Generator
+   ```
 
-```bash
-git clone https://github.com/boncabee/Affiliate-Prompt-Generator.git
-cd Affiliate-Prompt-Generator
-```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Install the dependencies:
+3. Run the local development server:
+   ```bash
+   npm run dev
+   ```
 
-```bash
-npm install
-```
-
-### 2. Running Locally
-
-Start the Vite development server:
-
-```bash
-npm run dev
-```
-
-Open your browser and navigate to `http://localhost:3000` (or the port specified in your terminal).
-
-### 3. Building for Production
-
-Compile the production bundle:
-
-```bash
-npm run build
-```
-
-The compiled assets will be built into the `dist/` directory, ready to be hosted on Netlify, Vercel, GitHub Pages, or any static hosting provider.
+4. Build the application for production:
+   ```bash
+   npm run build
+   ```
+   The build outputs static assets to the `dist/` directory, ready to be served by any static host.
 
 ---
 
-## ⚙️ API Integration & Configuration
+## API Configuration & Fallback Mode
 
-1.  Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/).
-2.  Paste your API key into the configuration card at the top of the interface.
-3.  The API key is securely saved locally in your browser's `localStorage` and never sent to any external server other than Google's direct API endpoint.
-4.  *Fallback Mode*: If you don't have an API key, the application automatically runs in **Preview Mode (Mock)** with a simulated loading state and a pre-formatted creative storyboard so you can explore the user interface.
-
----
-
-## 💡 Best Practices for Midjourney/Sora Workflow
-
-1.  **Consistent Character**: Turn on *Gunakan Placeholder Karakter*. When you paste the `imagePrompt` to Midjourney, append `--cref [URL_TO_MODEL_FACE]` and replace `[PROTAGONIST_MODEL]` with your consistent model reference.
-2.  **Product Placement**: Turn on *Gunakan Placeholder Produk*. If your product is highly unique, generate the template using `[PRODUCT_PLACEHOLDER]` and use Photoshop/Canva or a product-swap AI to insert your actual product.
+1. Acquire a Gemini API Key from the Google AI Studio.
+2. Enter the API Key in the configurations panel inside the application. The key is persisted in the browser's `localStorage` and sent directly to Google's API endpoint.
+3. If no API key is provided, the application runs in a simulated offline mode, returning an authentic, descriptive mock storyboard to showcase the system features.
 
 ---
 
-## 📄 License
+## Optimized Model Support
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+The generated outputs are specifically tailored to take advantage of parameters and style configurations in modern models:
+
+### Image Generation
+- **Midjourney 6.1** (outputs `--style raw` parameters and utilizes precise aspect ratios)
+- **GPT Image 2** (DALL-E 3 architecture)
+- **Imagen 4** (Google DeepMind)
+- **Nano Banana Pro / 2**
+
+### Video Generation
+- **Kling AI 3.0** (supports handheld camera physics, focus breathing, and speed ramps)
+- **Veo 3.1** (Google DeepMind video generation model)
+- **Runway 4.5**
+- **Seedance 2.0**
+- **Omni**
+
+### Audio Synthesis
+- **ElevenLabs** (optimized using tone markers and pause breaks)
+- **Fish Audio** (optimized for conversational room tone replication)
+- **Lovo**
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
