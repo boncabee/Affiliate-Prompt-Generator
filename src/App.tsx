@@ -40,6 +40,7 @@ interface FormData {
   voiceStyle: string;
   modelGender: string;
   voiceLanguage: string;
+  aspectRatio: string;
 }
 
 export default function App() {
@@ -125,7 +126,8 @@ export default function App() {
     visualStyle: 'Photorealistic',
     voiceStyle: 'Percakapan/Alami',
     modelGender: 'Bebas',
-    voiceLanguage: 'Bahasa Indonesia'
+    voiceLanguage: 'Bahasa Indonesia',
+    aspectRatio: '9:16'
   });
 
   const categories = [
@@ -181,7 +183,8 @@ export default function App() {
       visualStyle: 'Photorealistic',
       voiceStyle: 'Percakapan/Alami',
       modelGender: 'Bebas',
-      voiceLanguage: 'Bahasa Indonesia'
+      voiceLanguage: 'Bahasa Indonesia',
+      aspectRatio: '9:16'
     });
   };
 
@@ -456,8 +459,8 @@ Scenes:
 5. Call to Action (22-30s): Outro driving clicks and yellow cart purchases.
 
 CRITICAL: Output prompts MUST be highly detailed, descriptive, and rigid to avoid AI ambiguity:
-- "imagePrompt": Hyper-detailed English prompt (minimum 60-80 words). Must specify camera setup (e.g. shot on ARRI Alexa LF, 85mm lens, f/1.4, volumetric warm studio light, commercial color grading, sharp textures, photorealistic, 8k resolution) and style: ${formData.visualStyle}.
-- "videoPrompt": Extremely vivid, long action English prompt (minimum 60-80 words). Describe dynamic camera motions (e.g. slow glide tracking gimbal shot, smooth rack focus, panning at 60fps slow motion, realistic physics).
+- "imagePrompt": Hyper-detailed English prompt (minimum 60-80 words). Must specify camera setup (e.g. shot on ARRI Alexa LF, 85mm lens, f/1.4, volumetric warm studio light, commercial color grading, sharp textures, photorealistic, 8k resolution), style: ${formData.visualStyle}, and append Midjourney aspect ratio parameter: --ar ${formData.aspectRatio}.
+- "videoPrompt": Extremely vivid, long action English prompt (minimum 60-80 words). Describe dynamic camera motions (e.g. slow glide tracking gimbal shot, smooth rack focus, panning at 60fps slow motion, realistic physics). Explicitly specify the aspect ratio of ${formData.aspectRatio} inside the prompt description.
 - "voicePrompt": Expressive voiceover script written strictly in the selected language: ${formData.voiceLanguage}. Must include tone tags (e.g. [nada ceria], [pause 1s]) and ambient SFX cues (e.g. [SFX: ...]).
 No markdown. JSON only.`;
 
@@ -487,6 +490,7 @@ Hook: ${formData.useHook ? "YES" : "NO"}
 Visual: ${formData.visualStyle}
 Voice Style: ${formData.voiceStyle}
 Voice Language: ${formData.voiceLanguage}
+Screen Aspect Ratio: ${formData.aspectRatio}
 Model writing style: ${placeholderInstruction}
 Product writing style: ${productPlaceholderInstruction}
 
@@ -1132,7 +1136,31 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                     </div>
                   </div>
 
-                  {/* Hook Menarik */}
+                  {/* Target Rasio Layar */}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-3">Rasio Layar (Target Visual):</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: '9:16 (Portrait / TikTok / Reels)', value: '9:16' },
+                        { label: '3:4 (Portrait / Instagram)', value: '3:4' },
+                        { label: '16:9 (Landscape / YouTube)', value: '16:9' },
+                        { label: '4:3 (Landscape / Standar)', value: '4:3' }
+                      ].map((ratio) => (
+                        <button
+                          key={ratio.value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, aspectRatio: ratio.value })}
+                          className={`p-3 text-left rounded-xl border text-xs transition-all focus:outline-none ${formData.aspectRatio === ratio.value
+                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                            }`}
+                        >
+                          <div className="font-bold mb-1 text-slate-800">{ratio.value}</div>
+                          <div className="text-[10px] text-slate-500 leading-tight">{ratio.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
                     <div className="flex justify-between items-start">
                       <div>
@@ -1347,6 +1375,9 @@ Note: If product photos and/or model photos are attached, analyze all of them (t
                       </span>
                       <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
                         🪝 Hook: {formData.useHook ? 'Aktif' : 'Non-Aktif'}
+                      </span>
+                      <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
+                        📐 Rasio Visual: {formData.aspectRatio}
                       </span>
                       <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
                         🖼️ Foto Produk: {productImages.length > 0 ? `Dilampirkan (${productImages.length} Foto)` : 'Tidak Ada'}
