@@ -1,7 +1,7 @@
 import { useState, useEffect, ChangeEvent, MouseEvent } from 'react';
 import {
   Image as ImageIcon, Video, Upload, ChevronRight, ChevronLeft,
-  MessageSquare, CheckCircle, RefreshCcw, Loader2, Sparkles,
+  CheckCircle, RefreshCcw, Loader2, Sparkles,
   LayoutPanelLeft, Copy, Check, Volume2,
   Settings, ToggleLeft, ToggleRight, Mic, ChevronDown, ChevronUp,
   ExternalLink, AlertCircle, Tag, Key
@@ -32,6 +32,9 @@ interface FormData {
   useProductPlaceholder: boolean;
   visualStyle: string;
   voiceStyle: string;
+  modelImage: string | null;
+  modelGender: string;
+  voiceLanguage: string;
 }
 
 export default function App() {
@@ -105,6 +108,8 @@ export default function App() {
 
   const [productImageBase64, setProductImageBase64] = useState<string | null>(null);
   const [productImageMimeType, setProductImageMimeType] = useState<string | null>(null);
+  const [modelImageBase64, setModelImageBase64] = useState<string | null>(null);
+  const [modelImageMimeType, setModelImageMimeType] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     productImage: null,
@@ -116,7 +121,10 @@ export default function App() {
     usePlaceholder: false,
     useProductPlaceholder: false,
     visualStyle: 'Photorealistic',
-    voiceStyle: 'Percakapan/Alami'
+    voiceStyle: 'Percakapan/Alami',
+    modelImage: null,
+    modelGender: 'Bebas',
+    voiceLanguage: 'Bahasa Indonesia'
   });
 
   const categories = [
@@ -161,6 +169,8 @@ export default function App() {
     setAiSuggestions({ settings: [], vibes: [] });
     setProductImageBase64(null);
     setProductImageMimeType(null);
+    setModelImageBase64(null);
+    setModelImageMimeType(null);
     setFormData({
       productImage: null,
       category: '',
@@ -171,7 +181,10 @@ export default function App() {
       usePlaceholder: false,
       useProductPlaceholder: false,
       visualStyle: 'Photorealistic',
-      voiceStyle: 'Percakapan/Alami'
+      voiceStyle: 'Percakapan/Alami',
+      modelImage: null,
+      modelGender: 'Bebas',
+      voiceLanguage: 'Bahasa Indonesia'
     });
   };
 
@@ -200,6 +213,32 @@ export default function App() {
     setFormData(prev => ({ ...prev, productImage: null }));
     setProductImageBase64(null);
     setProductImageMimeType(null);
+  };
+
+  const handleModelImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setFormData(prev => ({ ...prev, modelImage: imageUrl }));
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const commaIndex = base64String.indexOf(',');
+        if (commaIndex !== -1) {
+          setModelImageBase64(base64String.substring(commaIndex + 1));
+          setModelImageMimeType(file.type);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveModelImage = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setFormData(prev => ({ ...prev, modelImage: null }));
+    setModelImageBase64(null);
+    setModelImageMimeType(null);
   };
 
   const handleCopyText = (text: string, type: 'image' | 'video' | 'voice') => {
@@ -342,7 +381,8 @@ JSON output structure:
     setApiError(null);
 
     const productText = formData.useProductPlaceholder ? '[PRODUCT_PLACEHOLDER]' : (formData.productDetail || 'produk ini');
-    const modelText = formData.usePlaceholder ? '[PROTAGONIST_MODEL]' : 'model Indonesia';
+    const genderTerm = formData.modelGender === 'Laki-laki' ? 'model pria' : formData.modelGender === 'Perempuan' ? 'model wanita' : 'model Indonesia';
+    const modelText = formData.usePlaceholder ? '[PROTAGONIST_MODEL]' : genderTerm;
 
     if (!apiKey.trim()) {
       // Fallback mock storyboard if no API key is provided
@@ -410,10 +450,13 @@ Scenes:
 CRITICAL: Output prompts MUST be highly detailed, descriptive, and rigid to avoid AI ambiguity:
 - "imagePrompt": Hyper-detailed English prompt (minimum 60-80 words). Must specify camera setup (e.g. shot on ARRI Alexa LF, 85mm lens, f/1.4, volumetric warm studio light, commercial color grading, sharp textures, photorealistic, 8k resolution) and style: ${formData.visualStyle}.
 - "videoPrompt": Extremely vivid, long action English prompt (minimum 60-80 words). Describe dynamic camera motions (e.g. slow glide tracking gimbal shot, smooth rack focus, panning at 60fps slow motion, realistic physics).
-- "voicePrompt": Expressive Indonesian VO script with tone tags (e.g. [nada ceria], [pause 1s]) and ambient SFX cues (e.g. [SFX: ...]).
+- "voicePrompt": Expressive voiceover script written strictly in the selected language: ${formData.voiceLanguage}. Must include tone tags (e.g. [nada ceria], [pause 1s]) and ambient SFX cues (e.g. [SFX: ...]).
 No markdown. JSON only.`;
 
-    const faceRefInstruction = `an attractive Indonesian protagonist model`;
+    const genderLabel = formData.modelGender === 'Laki-laki' ? 'male' : formData.modelGender === 'Perempuan' ? 'female' : 'unisex';
+    const faceRefInstruction = modelImageBase64
+      ? `an attractive Indonesian ${genderLabel} protagonist model matching the physical traits, hair, face and outfit shown in the attached model reference image`
+      : `an attractive Indonesian ${genderLabel} protagonist model`;
 
     const placeholderInstruction = formData.usePlaceholder
       ? `Use '[PROTAGONIST_MODEL]' in prompts. Ref: ${faceRefInstruction}.`
@@ -434,9 +477,12 @@ Setting: ${formData.setting}
 Vibe: ${formData.vibe}
 Hook: ${formData.useHook ? "YES" : "NO"}
 Visual: ${formData.visualStyle}
-Voice: ${formData.voiceStyle}
+Voice Style: ${formData.voiceStyle}
+Voice Language: ${formData.voiceLanguage}
 Model writing style: ${placeholderInstruction}
-Product writing style: ${productPlaceholderInstruction}`;
+Product writing style: ${productPlaceholderInstruction}
+
+Note: If a product photo and/or model photo are attached, analyze them and incorporate their visual details (appearance, colors, style, features) into the imagePrompt and videoPrompt scenes.`;
 
     const responseSchema = {
       type: "OBJECT",
@@ -452,7 +498,7 @@ Product writing style: ${productPlaceholderInstruction}`;
               description: { type: "STRING", description: "Detailed narrative action explanation in Indonesian" },
               imagePrompt: { type: "STRING", description: "Extremely long, hyper-detailed Midjourney/DALL-E 3 image prompt in English" },
               videoPrompt: { type: "STRING", description: "Extremely long, hyper-detailed Sora/Runway/Kling video action prompt in English" },
-              voicePrompt: { type: "STRING", description: "Professional Indonesian voiceover script with tone markers and SFX cues" }
+              voicePrompt: { type: "STRING", description: `Professional voiceover script written in ${formData.voiceLanguage} with tone markers and SFX cues` }
             },
             required: ["seq", "name", "description", "imagePrompt", "videoPrompt", "voicePrompt"]
           }
@@ -467,6 +513,14 @@ Product writing style: ${productPlaceholderInstruction}`;
         inlineData: {
           mimeType: productImageMimeType,
           data: productImageBase64
+        }
+      });
+    }
+    if (modelImageBase64 && modelImageMimeType) {
+      parts.push({
+        inlineData: {
+          mimeType: modelImageMimeType,
+          data: modelImageBase64
         }
       });
     }
@@ -656,8 +710,8 @@ Product writing style: ${productPlaceholderInstruction}`;
                     : 'text-slate-400'
                   }`}>
                   {num === 1 && "Produk"}
-                  {num === 2 && "Klarifikasi"}
-                  {num === 3 && "Strategi"}
+                  {num === 2 && "Model"}
+                  {num === 3 && "Klarifikasi"}
                   {num === 4 && "Hasil"}
                 </span>
               </div>
@@ -753,10 +807,33 @@ Product writing style: ${productPlaceholderInstruction}`;
                     <input
                       type="text"
                       placeholder="Cth: Lipstik matte warna merah ceri, Sneakers putih rajut"
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm"
+                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm mb-4"
                       value={formData.productDetail}
                       onChange={(e) => setFormData({ ...formData, productDetail: e.target.value })}
                     />
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-indigo-600" />
+                        Gunakan Placeholder Produk
+                      </h4>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                        Menyisipkan tag khusus <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[9px] font-bold text-slate-700">[PRODUCT_PLACEHOLDER]</code> untuk mempermudah workflow template siap pakai.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFormData({ ...formData, useProductPlaceholder: !formData.useProductPlaceholder })}
+                      className="shrink-0 transition-colors"
+                      type="button"
+                    >
+                      {formData.useProductPlaceholder ? (
+                        <ToggleRight className="w-9 h-9 text-indigo-600" />
+                      ) : (
+                        <ToggleLeft className="w-9 h-9 text-slate-400" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -782,127 +859,100 @@ Product writing style: ${productPlaceholderInstruction}`;
             </div>
           )}
 
-          {/* STEP 2: CLARIFICATION WITH DYNAMIC AI RECOMMENDATIONS */}
+          {/* STEP 2: INPUT MODEL & KARAKTER */}
           {step === 2 && (
-            <div className="p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300 bg-slate-50">
+            <div className="p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
-                <MessageSquare className="w-5 h-5 text-indigo-600" />
-                Langkah 2: Klarifikasi
+                <Upload className="w-5 h-5 text-indigo-600" />
+                Langkah 2: Input Model & Karakter
               </h2>
 
-              <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm mb-6 animate-in fade-in duration-300">
-                <div className="flex gap-4 mb-6 pb-6 border-b border-slate-100">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-                    <Sparkles className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <p className="text-slate-700 leading-relaxed text-sm md:text-base">
-                    Gemini AI telah menganalisis produk <span className="font-bold text-indigo-600">{formData.productDetail}</span> untuk memformulasikan saran Latar & Suasana dengan konversi penjualan tertinggi!
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Upload Area for Model Photo */}
+                <label className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-all cursor-pointer bg-slate-50 relative overflow-hidden group min-h-[220px]">
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    className="hidden"
+                    onChange={handleModelImageUpload}
+                  />
 
-                <div className="space-y-8">
-                  {/* Dynamic Setting Suggestions from Gemini */}
-                  <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-3">1. Latar Belakang (Setting) Lokasi:</label>
-                    <input
-                      type="text"
-                      placeholder="Pilih di bawah atau tulis kustom sendiri..."
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm"
-                      value={formData.setting}
-                      onChange={(e) => setFormData({ ...formData, setting: e.target.value })}
-                    />
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {aiSuggestions.settings.slice(0, 4).map(sug => (
-                          <button
-                            key={sug}
-                            onClick={() => setFormData({ ...formData, setting: sug })}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${formData.setting === sug
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                              }`}
-                          >
-                            + {sug}
-                          </button>
-                        ))}
-
-                        {showMoreSettings && aiSuggestions.settings.slice(4, 8).map(sug => (
-                          <button
-                            key={sug}
-                            onClick={() => setFormData({ ...formData, setting: sug })}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.setting === sug
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                              }`}
-                          >
-                            + {sug}
-                          </button>
-                        ))}
+                  {formData.modelImage ? (
+                    <>
+                      <img
+                        src={formData.modelImage}
+                        alt="Preview Model"
+                        className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-20 transition-opacity"
+                      />
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 shadow-sm animate-bounce">
+                          <CheckCircle className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h3 className="font-semibold mb-1 text-slate-900">Foto Model Terpilih</h3>
+                        <p className="text-xs text-slate-600 mb-4 bg-white/90 px-2 py-1 rounded">Foto model aktif</p>
+                        <button
+                          onClick={handleRemoveModelImage}
+                          className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50 transition-colors shadow-sm"
+                        >
+                          Hapus / Ganti
+                        </button>
                       </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <ImageIcon className="w-7 h-7 text-indigo-600" />
+                      </div>
+                      <h3 className="font-bold text-slate-800 mb-1">Unggah Foto Model</h3>
+                      <p className="text-xs text-slate-500 mb-4 max-w-[200px]">Opsional: Unggah foto referensi wajah model Anda untuk dianalisis oleh AI</p>
+                      <div className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50 shadow-sm pointer-events-none">Pilih File</div>
+                    </>
+                  )}
+                </label>
 
-                      <button
-                        onClick={() => setShowMoreSettings(!showMoreSettings)}
-                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
-                      >
-                        {showMoreSettings ? (
-                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
-                        ) : (
-                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
-                        )}
-                      </button>
+                {/* Form Inputs for Model */}
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Jenis Kelamin Model</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {['Bebas', 'Laki-laki', 'Perempuan'].map(gender => (
+                        <button
+                          key={gender}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, modelGender: gender })}
+                          className={`p-3 text-center rounded-xl border text-xs font-bold transition-all focus:outline-none ${formData.modelGender === gender
+                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                            }`}
+                        >
+                          {gender}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Dynamic Vibe Suggestions from Gemini */}
-                  <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-3">2. Suasana (Vibe & Mood) yang Diinginkan:</label>
-                    <input
-                      type="text"
-                      placeholder="Pilih di bawah atau tulis kustom sendiri..."
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm"
-                      value={formData.vibe}
-                      onChange={(e) => setFormData({ ...formData, vibe: e.target.value })}
-                    />
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {aiSuggestions.vibes.slice(0, 4).map(sug => (
-                          <button
-                            key={sug}
-                            onClick={() => setFormData({ ...formData, vibe: sug })}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${formData.vibe === sug
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                              }`}
-                          >
-                            + {sug}
-                          </button>
-                        ))}
-
-                        {showMoreVibes && aiSuggestions.vibes.slice(4, 8).map(sug => (
-                          <button
-                            key={sug}
-                            onClick={() => setFormData({ ...formData, vibe: sug })}
-                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.vibe === sug
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
-                              }`}
-                          >
-                            + {sug}
-                          </button>
-                        ))}
-                      </div>
-
-                      <button
-                        onClick={() => setShowMoreVibes(!showMoreVibes)}
-                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
-                      >
-                        {showMoreVibes ? (
-                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
-                        ) : (
-                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
-                        )}
-                      </button>
+                  {/* Gunakan Placeholder Karakter */}
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-indigo-600" />
+                        Gunakan Placeholder Karakter
+                      </h4>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                        Menyisipkan tag khusus <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[9px] font-bold text-slate-700">[PROTAGONIST_MODEL]</code> untuk memudahkan workflow Face-Swap.
+                      </p>
                     </div>
+                    <button
+                      onClick={() => setFormData({ ...formData, usePlaceholder: !formData.usePlaceholder })}
+                      className="shrink-0 transition-colors"
+                      type="button"
+                    >
+                      {formData.usePlaceholder ? (
+                        <ToggleRight className="w-9 h-9 text-indigo-600" />
+                      ) : (
+                        <ToggleLeft className="w-9 h-9 text-slate-400" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -916,99 +966,155 @@ Product writing style: ${productPlaceholderInstruction}`;
                 </button>
                 <button
                   onClick={handleNext}
-                  disabled={!formData.setting || !formData.vibe}
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:shadow-none text-sm"
+                  className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 text-sm"
                 >
-                  Atur Strategi Promosi <ChevronRight className="w-5 h-5" />
+                  Lanjut ke Klarifikasi <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: STRATEGIES STEP */}
+          {/* STEP 3: CLARIFICATION & STRATEGY */}
           {step === 3 && (
             <div className="p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
                 <Settings className="w-5 h-5 text-indigo-600" />
-                Langkah 3: Strategi & Gaya Promosi
+                Langkah 3: Klarifikasi & Strategi Promosi
               </h2>
+
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 mb-8">
+                <div className="flex gap-4">
+                  <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <p className="text-xs text-slate-700 leading-relaxed">
+                    Berdasarkan produk <span className="font-bold text-indigo-600">{formData.productDetail}</span> dan model yang diinput, tentukan setting latar belakang, suasana, visual, dan voiceover di bawah ini.
+                  </p>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
                 <div className="space-y-6">
-                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">Gunakan Hook Menarik</h4>
-                        <p className="text-xs text-slate-500 max-w-[280px]">Mmbuat awal video memicu rasa ingin tahu audiens secara dramatis.</p>
+                  {/* Setting selection */}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-800 mb-2">Latar Belakang (Setting) Lokasi:</label>
+                    <input
+                      type="text"
+                      placeholder="Pilih di bawah atau tulis kustom sendiri..."
+                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm"
+                      value={formData.setting}
+                      onChange={(e) => setFormData({ ...formData, setting: e.target.value })}
+                    />
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {aiSuggestions.settings.slice(0, 4).map(sug => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, setting: sug })}
+                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${formData.setting === sug
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                              }`}
+                          >
+                            + {sug}
+                          </button>
+                        ))}
+
+                        {showMoreSettings && aiSuggestions.settings.slice(4, 8).map(sug => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, setting: sug })}
+                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.setting === sug
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                              }`}
+                          >
+                            + {sug}
+                          </button>
+                        ))}
                       </div>
+
                       <button
-                        onClick={() => setFormData({ ...formData, useHook: !formData.useHook })}
-                        className="text-indigo-600 hover:scale-105 transition-transform focus:outline-none"
+                        type="button"
+                        onClick={() => setShowMoreSettings(!showMoreSettings)}
+                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
                       >
-                        {formData.useHook ? (
-                          <ToggleRight className="w-10 h-10 animate-in fade-in" />
+                        {showMoreSettings ? (
+                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
                         ) : (
-                          <ToggleLeft className="w-10 h-10 text-slate-400" />
+                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
                         )}
                       </button>
-                    </div>
-                    <div className="mt-3 bg-white px-3 py-2 rounded border border-slate-200/60 text-xs text-slate-600 italic">
-                      {formData.useHook ? "Mulai dengan skenario emosional/pertanyaan pembuka" : "Mulai langsung membahas visual utama produk secara lugas"}
                     </div>
                   </div>
 
-                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">Gunakan Placeholder Karakter</h4>
-                        <p className="text-xs text-slate-500 max-w-[280px]">Menyisipkan tag khusus [PROTAGONIST_MODEL] untuk memudahkan workflow dengan Charactersheet.</p>
-                      </div>
-                      <button
-                        onClick={() => setFormData({ ...formData, usePlaceholder: !formData.usePlaceholder })}
-                        className="text-indigo-600 hover:scale-105 transition-transform focus:outline-none"
-                      >
-                        {formData.usePlaceholder ? (
-                          <ToggleRight className="w-10 h-10 animate-in fade-in" />
-                        ) : (
-                          <ToggleLeft className="w-10 h-10 text-slate-400" />
-                        )}
-                      </button>
-                    </div>
-                    <div className="mt-3 bg-white px-3 py-2 rounded border border-slate-200/60 text-xs text-slate-600 italic">
-                      {formData.usePlaceholder ? "Sangat disarankan untuk workflow Midjourney cref" : "Memakai model deskriptif umum"}
-                    </div>
-                  </div>
+                  {/* Vibe selection */}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-800 mb-2">Suasana (Vibe & Mood):</label>
+                    <input
+                      type="text"
+                      placeholder="Pilih di bawah atau tulis kustom sendiri..."
+                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none mb-3 bg-slate-50 text-sm"
+                      value={formData.vibe}
+                      onChange={(e) => setFormData({ ...formData, vibe: e.target.value })}
+                    />
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {aiSuggestions.vibes.slice(0, 4).map(sug => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, vibe: sug })}
+                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all ${formData.vibe === sug
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                              }`}
+                          >
+                            + {sug}
+                          </button>
+                        ))}
 
-                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">Gunakan Placeholder Produk</h4>
-                        <p className="text-xs text-slate-500 max-w-[280px]">Menyisipkan tag khusus [PRODUCT_PLACEHOLDER] untuk memudahkan workflow penggantian nama produk.</p>
+                        {showMoreVibes && aiSuggestions.vibes.slice(4, 8).map(sug => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, vibe: sug })}
+                            className={`px-3 py-1.5 border rounded-full text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-200 ${formData.vibe === sug
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600'
+                              }`}
+                          >
+                            + {sug}
+                          </button>
+                        ))}
                       </div>
+
                       <button
-                        onClick={() => setFormData({ ...formData, useProductPlaceholder: !formData.useProductPlaceholder })}
-                        className="text-indigo-600 hover:scale-105 transition-transform focus:outline-none"
+                        type="button"
+                        onClick={() => setShowMoreVibes(!showMoreVibes)}
+                        className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-2 transition-colors focus:outline-none"
                       >
-                        {formData.useProductPlaceholder ? (
-                          <ToggleRight className="w-10 h-10 animate-in fade-in" />
+                        {showMoreVibes ? (
+                          <><ChevronUp className="w-3.5 h-3.5" /> Sembunyikan</>
                         ) : (
-                          <ToggleLeft className="w-10 h-10 text-slate-400" />
+                          <><ChevronDown className="w-3.5 h-3.5" /> Rekomendasi lainnya</>
                         )}
                       </button>
-                    </div>
-                    <div className="mt-3 bg-white px-3 py-2 rounded border border-slate-200/60 text-xs text-slate-600 italic">
-                      {formData.useProductPlaceholder ? "Sangat disarankan untuk template prompt siap pakai" : "Memakai deskripsi produk secara langsung"}
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-6">
+                  {/* Gaya Visual */}
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-3">Gaya Visual (Tampilan):</label>
                     <div className="grid grid-cols-2 gap-3">
                       {visualStyles.map((style) => (
                         <button
                           key={style.name}
+                          type="button"
                           onClick={() => setFormData({ ...formData, visualStyle: style.name })}
                           className={`p-3 text-left rounded-xl border text-xs transition-all focus:outline-none ${formData.visualStyle === style.name
                             ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
@@ -1021,28 +1127,83 @@ Product writing style: ${productPlaceholderInstruction}`;
                       ))}
                     </div>
                   </div>
+
+                  {/* Hook Menarik */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-xs">Gunakan Hook Menarik</h4>
+                        <p className="text-[10px] text-slate-500 max-w-[280px]">Membuat awal video memicu rasa ingin tahu audiens secara dramatis.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, useHook: !formData.useHook })}
+                        className="text-indigo-600 hover:scale-105 transition-transform focus:outline-none"
+                      >
+                        {formData.useHook ? (
+                          <ToggleRight className="w-10 h-10 animate-in fade-in" />
+                        ) : (
+                          <ToggleLeft className="w-10 h-10 text-slate-400" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="mt-3 bg-white px-3 py-2 rounded border border-slate-200/60 text-[10px] text-slate-600 italic">
+                      {formData.useHook ? "Mulai dengan skenario emosional/pertanyaan pembuka" : "Mulai langsung membahas visual utama produk secara lugas"}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-6 pt-6 border-t border-slate-100">
-                <label className="block text-sm font-bold text-slate-700 mb-3">Gaya Voiceover (Karakter & Tempo):</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                  {voiceStyles.map((voice) => (
-                    <button
-                      key={voice.name}
-                      onClick={() => setFormData({ ...formData, voiceStyle: voice.name })}
-                      className={`p-3 text-left rounded-xl border text-xs transition-all focus:outline-none ${formData.voiceStyle === voice.name
-                        ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                        }`}
-                    >
-                      <div className="font-bold mb-1 flex items-center gap-1 text-slate-800">
-                        <Mic className="w-3.5 h-3.5 text-indigo-500" />
-                        {voice.name}
-                      </div>
-                      <div className="text-[10px] text-slate-500 leading-tight">{voice.desc}</div>
-                    </button>
-                  ))}
+              {/* Gaya Voiceover */}
+              <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-bold text-slate-700 mb-3">Gaya Voiceover (Karakter & Tempo):</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {voiceStyles.map((voice) => (
+                      <button
+                        key={voice.name}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, voiceStyle: voice.name })}
+                        className={`p-3 text-left rounded-xl border text-xs transition-all focus:outline-none ${formData.voiceStyle === voice.name
+                          ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                          }`}
+                      >
+                        <div className="font-bold mb-1 flex items-center gap-1 text-slate-800">
+                          <Mic className="w-3.5 h-3.5 text-indigo-500" />
+                          {voice.name}
+                        </div>
+                        <div className="text-[10px] text-slate-500 leading-tight">{voice.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Voiceover Language selection (Request 5) */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-3">Bahasa Voiceover:</label>
+                  <div className="space-y-2.5">
+                    {[
+                      'Bahasa Indonesia',
+                      'Bahasa Inggris',
+                      'Bahasa Indonesia + Inggris (Gaul Jaksel)',
+                      'Bahasa Jawa',
+                      'Bahasa Sunda'
+                    ].map(lang => (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, voiceLanguage: lang })}
+                        className={`w-full p-3 text-left rounded-xl border text-xs font-semibold transition-all focus:outline-none flex items-center justify-between ${formData.voiceLanguage === lang
+                          ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                          }`}
+                      >
+                        <span>{lang}</span>
+                        {formData.voiceLanguage === lang && <Check className="w-4 h-4 text-indigo-600" />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -1066,8 +1227,8 @@ Product writing style: ${productPlaceholderInstruction}`;
                   )}
                   <button
                     onClick={generatePromptsWithGemini}
-                    disabled={isGenerating}
-                    className="bg-indigo-600 text-white px-6 md:px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 text-sm"
+                    disabled={isGenerating || !formData.setting || !formData.vibe}
+                    className="bg-indigo-600 text-white px-6 md:px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 text-sm disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
                   >
                     {isGenerating ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis</>
@@ -1175,10 +1336,19 @@ Product writing style: ${productPlaceholderInstruction}`;
                         🎙️ Audio: {formData.voiceStyle}
                       </span>
                       <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
+                        🌐 Bahasa VO: {formData.voiceLanguage}
+                      </span>
+                      <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
+                        👤 Gender Model: {formData.modelGender}
+                      </span>
+                      <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
                         🪝 Hook: {formData.useHook ? 'Aktif' : 'Non-Aktif'}
                       </span>
                       <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
                         🖼️ Foto Produk: {formData.productImage ? 'Dilampirkan' : 'Tidak Ada'}
+                      </span>
+                      <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
+                        👩 Foto Model: {formData.modelImage ? 'Dilampirkan' : 'Tidak Ada'}
                       </span>
                       {formData.usePlaceholder && (
                         <span className="text-slate-700 bg-white shadow-xs px-2.5 py-1 rounded-lg text-[10px] font-semibold border border-slate-200">
